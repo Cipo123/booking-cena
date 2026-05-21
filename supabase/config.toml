@@ -1,6 +1,5 @@
 # Supabase project config
-# project_id viene passato come secret GitHub (SUPABASE_PROJECT_REF)
-# Non modificare questo file — usa i GitHub Secrets per la configurazione sensibile
+project_id = "bfzntrexvipipnramrwz"
 
 [api]
 enabled = true
