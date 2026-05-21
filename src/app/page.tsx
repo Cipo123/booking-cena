@@ -1,65 +1,68 @@
-import Image from "next/image";
+import { eventsDb } from '@/lib/db';
+import EventCard from '@/components/EventCard';
 
-export default function Home() {
+export const dynamic = 'force-dynamic';
+
+export default function HomePage() {
+  const events = eventsDb.getAll();
+
+  const now = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  const upcoming = events.filter((e) => new Date(`${e.date}T${e.time}`) >= now);
+  const past = events.filter((e) => new Date(`${e.date}T${e.time}`) < now);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="space-y-10">
+      {/* Hero */}
+      <div className="text-center space-y-3 py-6 animate-fadeInUp">
+        <h1
+          className="text-4xl md:text-5xl font-black tracking-tight"
+          style={{
+            background: 'linear-gradient(135deg, #a78bfa 0%, #f472b6 50%, #fb923c 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
+          Prossime Uscite 🎊
+        </h1>
+        <p className="text-white/60 text-lg max-w-xl mx-auto">
+          Dichiara la tua disponibilità, salva l&apos;evento in calendario e non perdere nemmeno
+          un&apos;uscita!
+        </p>
+      </div>
+
+      {/* Upcoming */}
+      {upcoming.length === 0 ? (
+        <div className="glass rounded-2xl p-12 text-center space-y-3 animate-fadeInUp">
+          <p className="text-5xl">🗓️</p>
+          <p className="text-white/70 text-lg">Nessun evento in programma.</p>
+          <p className="text-white/40 text-sm">L&apos;admin aggiungerà presto nuove uscite!</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      ) : (
+        <section className="space-y-4">
+          <h2 className="text-white/80 font-semibold text-sm uppercase tracking-widest px-1">
+            Prossimi eventi ({upcoming.length})
+          </h2>
+          <div className="grid gap-5 md:grid-cols-2">
+            {upcoming.map((event, i) => (
+              <EventCard key={event.id} event={event} index={i} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Past */}
+      {past.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="text-white/40 font-semibold text-sm uppercase tracking-widest px-1">
+            eventi passati ({past.length})
+          </h2>
+          <div className="grid gap-5 md:grid-cols-2 opacity-50">
+            {past.map((event, i) => (
+              <EventCard key={event.id} event={event} index={i} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

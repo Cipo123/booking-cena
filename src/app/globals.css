@@ -1,26 +1,121 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --bg-from: #0f0c29;
+  --bg-via: #302b63;
+  --bg-to: #24243e;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: linear-gradient(135deg, var(--bg-from) 0%, var(--bg-via) 50%, var(--bg-to) 100%);
+  min-height: 100vh;
+  color: #ffffff;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  transition: all 0.2s ease;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #6d28d9, #9333ea);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+}
+
+.btn-yes {
+  background: linear-gradient(135deg, #059669, #10b981);
+  transition: all 0.2s ease;
+}
+.btn-yes:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+}
+.btn-yes.active {
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.5), 0 8px 25px rgba(16, 185, 129, 0.4);
+}
+
+.btn-maybe {
+  background: linear-gradient(135deg, #b45309, #f59e0b);
+  transition: all 0.2s ease;
+}
+.btn-maybe:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+}
+.btn-maybe.active {
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.5), 0 8px 25px rgba(245, 158, 11, 0.4);
+}
+
+.btn-no {
+  background: linear-gradient(135deg, #be123c, #f43f5e);
+  transition: all 0.2s ease;
+}
+.btn-no:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(244, 63, 94, 0.4);
+}
+.btn-no.active {
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.5), 0 8px 25px rgba(244, 63, 94, 0.4);
+}
+
+.card-hover {
+  transition: all 0.3s ease;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  border-color: rgba(167, 139, 250, 0.4);
+}
+
+input, textarea, select {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  width: 100%;
+  transition: border-color 0.2s;
+  outline: none;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.2);
+}
+input::placeholder, textarea::placeholder {
+  color: rgba(255,255,255,0.35);
+}
+select option {
+  background: #302b63;
+  color: white;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeInUp {
+  animation: fadeInUp 0.4s ease both;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(167, 139, 250, 0.2); }
+  50%       { box-shadow: 0 0 40px rgba(167, 139, 250, 0.5); }
+}
+.pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
 }

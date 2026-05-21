@@ -36,6 +36,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local database
+/data
+
+# claude code
+.claude/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
