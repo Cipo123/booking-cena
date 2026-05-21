@@ -5,7 +5,7 @@ import { generateICS } from '@/lib/calendar';
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const event = eventsDb.getById(id);
+    const event = await eventsDb.getById(id);
     if (!event) return NextResponse.json({ error: 'Evento non trovato' }, { status: 404 });
 
     const ics = generateICS(event);

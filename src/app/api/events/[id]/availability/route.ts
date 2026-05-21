@@ -4,7 +4,7 @@ import { eventsDb, availabilitiesDb } from '@/lib/db';
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const event = eventsDb.getById(id);
+    const event = await eventsDb.getById(id);
     if (!event) return NextResponse.json({ error: 'Evento non trovato' }, { status: 404 });
 
     const body = await req.json();
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Stato non valido' }, { status: 400 });
     }
 
-    const availability = availabilitiesDb.upsert({
+    const availability = await availabilitiesDb.upsert({
       event_id: id,
       user_name: user_name.trim(),
       user_email: user_email?.trim() ?? '',

@@ -4,7 +4,7 @@ import { eventsDb } from '@/lib/db';
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const event = eventsDb.getWithAvailabilities(id);
+    const event = await eventsDb.getWithAvailabilities(id);
     if (!event) return NextResponse.json({ error: 'Evento non trovato' }, { status: 404 });
     return NextResponse.json(event);
   } catch {
@@ -21,10 +21,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     const { id } = await params;
-    const event = eventsDb.getById(id);
+    const event = await eventsDb.getById(id);
     if (!event) return NextResponse.json({ error: 'Evento non trovato' }, { status: 404 });
 
-    eventsDb.delete(id);
+    await eventsDb.delete(id);
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: 'Errore server' }, { status: 500 });

@@ -51,7 +51,7 @@ function AttendeeGroup({
 
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const event = eventsDb.getWithAvailabilities(id);
+  const event = await eventsDb.getWithAvailabilities(id);
   if (!event) notFound();
 
   const yes = event.availabilities.filter((a) => a.status === 'yes');

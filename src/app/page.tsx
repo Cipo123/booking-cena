@@ -3,8 +3,8 @@ import EventCard from '@/components/EventCard';
 
 export const dynamic = 'force-dynamic';
 
-export default function HomePage() {
-  const events = eventsDb.getAll();
+export default async function HomePage() {
+  const events = await eventsDb.getAll();
 
   const now = new Date(Date.now() - 2 * 60 * 60 * 1000);
   const upcoming = events.filter((e) => new Date(`${e.date}T${e.time}`) >= now);

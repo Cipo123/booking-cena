@@ -3,7 +3,7 @@ import { eventsDb } from '@/lib/db';
 
 export async function GET() {
   try {
-    const events = eventsDb.getAll();
+    const events = await eventsDb.getAll();
     return NextResponse.json(events);
   } catch (e) {
     return NextResponse.json({ error: 'Errore server' }, { status: 500 });
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Titolo, data e ora sono obbligatori' }, { status: 400 });
     }
 
-    const event = eventsDb.create({
+    const event = await eventsDb.create({
       title,
       description: description ?? '',
       type: type ?? 'cena',
