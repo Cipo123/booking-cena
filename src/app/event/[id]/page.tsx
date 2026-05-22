@@ -7,6 +7,7 @@ import { googleCalendarUrl, outlookCalendarUrl } from '@/lib/calendar';
 import AvailabilityForm from '@/components/AvailabilityForm';
 import MapWidget from '@/components/MapWidget';
 import CountdownTimer from '@/components/CountdownTimer';
+import ShareQrWidget from '@/components/ShareQrWidget';
 import type { EventWithAvailabilities, Availability, EventPart } from '@/lib/db';
 
 const EVENT_EMOJI: Record<string, string> = {
@@ -151,6 +152,20 @@ export default function EventPage() {
                 <span>👥</span><span>{tr.event.maxSpots} {event.max_participants} {tr.event.spots}</span>
               </div>
             )}
+            {event.rsvp_deadline && (
+              <div className="flex items-center gap-2 text-sm sm:col-span-2" style={{
+                color: new Date(event.rsvp_deadline) < new Date() ? '#f87171' : 'var(--text-secondary)'
+              }}>
+                <span>⏰</span>
+                <span>
+                  {tr.event.rsvpDeadline}: {new Date(event.rsvp_deadline).toLocaleString(
+                    lang === 'it' ? 'it-IT' : 'en-GB',
+                    { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }
+                  )}
+                  {new Date(event.rsvp_deadline) < new Date() && ' 🔒'}
+                </span>
+              </div>
+            )}
           </div>
           {event.description && (
             <p className="text-sm leading-relaxed pt-2 border-t" style={{ borderColor: 'var(--card-border)', color: 'var(--text-muted)' }}>
@@ -179,6 +194,9 @@ export default function EventPage() {
 
       {/* Map */}
       {event.location && <MapWidget location={event.location} />}
+
+      {/* Share + QR */}
+      <ShareQrWidget title={event.title} />
 
       {/* Calendar export */}
       <div className="glass rounded-2xl p-5 space-y-3">
@@ -216,7 +234,7 @@ export default function EventPage() {
       )}
 
       {/* Availability form */}
-      <AvailabilityForm eventId={event.id} parts={event.parts} onSuccess={reload} />
+      <AvailabilityForm eventId={event.id} parts={event.parts} rsvpDeadline={event.rsvp_deadline} onSuccess={reload} />
 
       {/* Event-level attendees (only if no parts) */}
       {event.parts.length === 0 && eventLevel.length > 0 && (

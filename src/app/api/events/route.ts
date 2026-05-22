@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { title, description, type, location, date, time, max_participants, parts } = body;
+    const { title, description, type, location, date, time, max_participants, rsvp_deadline, parts } = body;
 
     if (!title || !date || !time) {
       return NextResponse.json({ error: 'Titolo, data e ora sono obbligatori' }, { status: 400 });
@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
         date,
         time,
         max_participants: max_participants ? Number(max_participants) : null,
+        rsvp_deadline: rsvp_deadline ?? null,
       },
       Array.isArray(parts) && parts.length > 0 ? parts : undefined,
     );

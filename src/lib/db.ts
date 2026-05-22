@@ -23,6 +23,7 @@ export interface Event {
   date: string;
   time: string;
   max_participants: number | null;
+  rsvp_deadline: string | null;
   created_at: string;
   parts_count?: number;
 }
@@ -79,9 +80,10 @@ export const eventsDb = {
     const id = randomUUID();
     const created_at = new Date().toISOString();
     await sql`
-      INSERT INTO events (id, title, description, type, location, date, time, max_participants, created_at)
+      INSERT INTO events (id, title, description, type, location, date, time, max_participants, rsvp_deadline, created_at)
       VALUES (${id}, ${data.title}, ${data.description}, ${data.type}, ${data.location},
-              ${data.date}, ${data.time}, ${data.max_participants ?? null}, ${created_at})
+              ${data.date}, ${data.time}, ${data.max_participants ?? null},
+              ${data.rsvp_deadline ?? null}, ${created_at})
     `;
     if (parts && parts.length > 0) {
       for (const [i, part] of parts.entries()) {

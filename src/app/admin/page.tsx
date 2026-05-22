@@ -37,8 +37,9 @@ export default function AdminPage() {
   const [parts, setParts] = useState<Part[]>([emptyPart()]);
 
   const [form, setForm] = useState({
-    title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '',
+    title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '',
   });
+  const [exportingId, setExportingId] = useState<string | null>(null);
   const [creating, setCreating]     = useState(false);
   const [createError, setCreateError]   = useState('');
   const [createSuccess, setCreateSuccess] = useState('');
@@ -61,6 +62,7 @@ export default function AdminPage() {
       const body: Record<string, unknown> = {
         ...form,
         max_participants: form.max_participants ? Number(form.max_participants) : null,
+        rsvp_deadline: form.rsvp_deadline || null,
       };
       if (isMulti && parts.length > 0) body.parts = parts;
 
@@ -75,7 +77,7 @@ export default function AdminPage() {
         throw new Error(d.error ?? 'Errore');
       }
       setCreateSuccess(tr.admin.created);
-      setForm({ title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '' });
+      setForm({ title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '' });
       setParts([emptyPart()]); setIsMulti(false);
       loadEvents();
     } catch (err: unknown) {
@@ -91,6 +93,21 @@ export default function AdminPage() {
       if (!res.ok && res.status === 401) { setAuthed(false); setAuthError('Password non valida.'); return; }
       loadEvents();
     } finally { setDeleteId(null); }
+  }
+
+  async function handleExportCsv(id: string, title: string) {
+    setExportingId(id);
+    try {
+      const res = await fetch(`/api/events/${id}/export`, { headers: { 'x-admin-password': password } });
+      if (!res.ok) { alert('Export fallito'); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title.replace(/[^a-z0-9]/gi, '_')}_disponibilita.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally { setExportingId(null); }
   }
 
   function updatePart(i: number, field: keyof Part, val: string) {
@@ -183,6 +200,21 @@ export default function AdminPage() {
               <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.descLabel}</label>
               <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                 placeholder={tr.admin.descPlaceholder} rows={2} maxLength={400} style={{ resize: 'vertical' }} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
+                ⏰ {tr.admin.deadlineLabel}
+              </label>
+              <input
+                type="datetime-local"
+                value={form.rsvp_deadline}
+                onChange={e => setForm(f => ({ ...f, rsvp_deadline: e.target.value }))}
+              />
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                {lang === 'it'
+                  ? 'Dopo questa data/ora il form di risposta sarà bloccato.'
+                  : 'After this date/time the response form will be locked.'}
+              </p>
             </div>
           </div>
 
@@ -280,9 +312,18 @@ export default function AdminPage() {
                         {dateFormatted} · {event.time}{event.location ? ` · ${event.location}` : ''}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       <a href={`/event/${event.id}`} target="_blank" rel="noopener noreferrer"
                         className="text-lg opacity-50 hover:opacity-100 transition-opacity" title="Apri">🔗</a>
+                      <button
+                        onClick={() => handleExportCsv(event.id, event.title)}
+                        disabled={exportingId === event.id}
+                        className="text-xs glass-strong rounded-lg px-2.5 py-1.5 font-semibold transition-all hover:opacity-80 disabled:opacity-30"
+                        style={{ color: 'var(--text-secondary)' }}
+                        title={tr.admin.exportCsv}
+                      >
+                        {exportingId === event.id ? '⏳' : '📊'}
+                      </button>
                       <button onClick={() => handleDelete(event.id, event.title)} disabled={deleteId === event.id}
                         className="text-lg opacity-50 hover:opacity-100 transition-opacity disabled:opacity-30" title="Elimina">
                         {deleteId === event.id ? '⏳' : '🗑️'}

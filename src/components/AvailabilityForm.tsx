@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import confetti from 'canvas-confetti';
 import { useLang, useToast } from '@/context/providers';
 import type { EventPart } from '@/lib/db';
 
@@ -9,12 +10,15 @@ type Status = 'yes' | 'maybe' | 'no';
 interface Props {
   eventId: string;
   parts?: EventPart[];
+  rsvpDeadline?: string | null;
   onSuccess?: () => void;
 }
 
-export default function AvailabilityForm({ eventId, parts = [], onSuccess }: Props) {
+export default function AvailabilityForm({ eventId, parts = [], rsvpDeadline, onSuccess }: Props) {
   const { tr } = useLang();
   const { showToast } = useToast();
+
+  const deadlinePassed = rsvpDeadline ? new Date(rsvpDeadline) < new Date() : false;
 
   const [name, setName]   = useState('');
   const [email, setEmail] = useState('');
@@ -62,6 +66,13 @@ export default function AvailabilityForm({ eventId, parts = [], onSuccess }: Pro
       showToast(tr.toast.saved, 'success');
       setSuccess(true);
       onSuccess?.();
+      // 🎉 Confetti on yes/multi-part success
+      const fired = isMulti
+        ? Object.values(partSelections).some(s => s === 'yes')
+        : status === 'yes';
+      if (fired) {
+        confetti({ particleCount: 160, spread: 80, origin: { y: 0.65 }, colors: ['#a78bfa','#f472b6','#fb923c','#34d399'] });
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : tr.toast.error;
       setError(msg);
@@ -90,6 +101,16 @@ export default function AvailabilityForm({ eventId, parts = [], onSuccess }: Pro
         >
           {tr.event.modify}
         </button>
+      </div>
+    );
+  }
+
+  if (deadlinePassed) {
+    return (
+      <div className="glass rounded-2xl p-6 text-center space-y-2 animate-fadeInUp">
+        <div className="text-4xl">🔒</div>
+        <p className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>{tr.event.deadlinePassed}</p>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{tr.event.deadlinePassedSub}</p>
       </div>
     );
   }
