@@ -168,7 +168,7 @@ export default function AdminEventDetail({ eventId, password, lang, onClose }: P
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col"
-      style={{ background: 'var(--bg)' }}
+      style={{ background: 'linear-gradient(135deg, var(--bg-from) 0%, var(--bg-via) 50%, var(--bg-to) 100%)' }}
     >
       {/* ── Top bar ── */}
       <div
