@@ -18,7 +18,7 @@ const EVENT_TYPES_EN = [
 const TYPE_COLOR: Record<string, string> = {
   cena: 'from-blue-600 to-indigo-700', aperitivo: 'from-amber-500 to-orange-600',
   colazione: 'from-sky-500 to-blue-600', pizza: 'from-red-500 to-rose-600',
-  festa: 'from-pink-500 to-fuchsia-600', altro: 'from-teal-500 to-emerald-600',
+  festa: 'from-sky-400 to-cyan-500', altro: 'from-teal-500 to-emerald-600',
 };
 
 interface Part { title: string; type: string; location: string; time: string; end_time: string; description: string; }
@@ -41,6 +41,7 @@ export default function AdminPage() {
     title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '',
   });
   const [exportingId, setExportingId] = useState<string | null>(null);
+  const [loginLoading, setLoginLoading] = useState(false);
   const [creating, setCreating]     = useState(false);
   const [createError, setCreateError]   = useState('');
   const [createSuccess, setCreateSuccess] = useState('');
@@ -76,7 +77,7 @@ export default function AdminPage() {
       });
       if (!res.ok) {
         const d = await res.json();
-        if (res.status === 401) { setAuthed(false); setAuthError(tr.admin.loginTitle); return; }
+        if (res.status === 401) { setAuthed(false); setAuthError(tr.admin.wrongPassword); return; }
         throw new Error(d.error ?? 'Errore');
       }
       setCreateSuccess(tr.admin.created);
@@ -93,7 +94,7 @@ export default function AdminPage() {
     setDeleteId(id);
     try {
       const res = await fetch(`/api/events/${id}`, { method: 'DELETE', headers: { 'x-admin-password': password } });
-      if (!res.ok && res.status === 401) { setAuthed(false); setAuthError('Password non valida.'); return; }
+      if (!res.ok && res.status === 401) { setAuthed(false); setAuthError(tr.admin.wrongPassword); return; }
       loadEvents();
     } finally { setDeleteId(null); }
   }
@@ -125,15 +126,32 @@ export default function AdminPage() {
         <h1 className="text-2xl font-black" style={{ color: 'var(--text-primary)' }}>{tr.admin.loginTitle}</h1>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{tr.admin.loginSubtitle}</p>
       </div>
-      <form onSubmit={e => { e.preventDefault(); setAuthed(true); }} className="glass rounded-2xl p-6 space-y-4">
+      <form
+        onSubmit={async e => {
+          e.preventDefault();
+          setAuthError('');
+          setLoginLoading(true);
+          try {
+            const res = await fetch('/api/admin/auth', { headers: { 'x-admin-password': password } });
+            if (res.ok) { setAuthed(true); }
+            else { setAuthError(tr.admin.wrongPassword); }
+          } catch { setAuthError(tr.admin.wrongPassword); }
+          finally { setLoginLoading(false); }
+        }}
+        className="glass rounded-2xl p-6 space-y-4"
+      >
         <div>
           <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
             {tr.admin.passwordLabel}
           </label>
           <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required autoFocus />
         </div>
-        {authError && <p className="text-sm rounded-xl px-3 py-2" style={{ color: '#f87171', background: 'rgba(244,63,94,0.1)' }}>{authError}</p>}
-        <button type="submit" className="btn-primary w-full rounded-xl py-3 text-white font-bold text-sm">{tr.admin.loginBtn}</button>
+        {authError && (
+          <p className="text-sm rounded-xl px-3 py-2" style={{ color: '#f87171', background: 'rgba(239,68,68,0.1)' }}>{authError}</p>
+        )}
+        <button type="submit" disabled={loginLoading} className="btn-primary w-full rounded-xl py-3 text-white font-bold text-sm disabled:opacity-60">
+          {loginLoading ? '⏳ Verifica...' : tr.admin.loginBtn}
+        </button>
       </form>
     </div>
   );
@@ -314,7 +332,7 @@ export default function AdminPage() {
         ) : (
           <div className="space-y-2">
             {events.map(event => {
-              const gradient = TYPE_COLOR[event.type] ?? 'from-violet-600 to-purple-700';
+              const gradient = TYPE_COLOR[event.type] ?? 'from-blue-600 to-indigo-700';
               const partsCount = (event as Event & { parts_count?: number }).parts_count ?? 0;
               const dateFormatted = new Date(event.date + 'T00:00:00').toLocaleDateString(
                 lang === 'it' ? 'it-IT' : 'en-GB',

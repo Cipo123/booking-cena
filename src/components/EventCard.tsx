@@ -18,7 +18,7 @@ const TYPE_COLOR: Record<string, string> = {
   aperitivo: 'from-amber-500 to-orange-600',
   colazione: 'from-sky-500 to-blue-600',
   pizza: 'from-red-500 to-rose-600',
-  festa: 'from-pink-500 to-fuchsia-600',
+  festa: 'from-sky-400 to-cyan-500',
   altro: 'from-teal-500 to-emerald-600',
 };
 const MULTI_GRADIENT = 'from-cyan-500 via-blue-500 to-indigo-600';
@@ -31,7 +31,7 @@ export default function EventCard({ event, index }: { event: Event; index: numbe
 
   const gradient = isMulti
     ? MULTI_GRADIENT
-    : (TYPE_COLOR[event.type] ?? 'from-violet-600 to-purple-700');
+    : (TYPE_COLOR[event.type] ?? 'from-blue-600 to-indigo-700');
 
   const badgeEmoji  = isMulti ? '🎭' : (EVENT_EMOJI[event.type] ?? '🎈');
   const badgeLabel  = isMulti

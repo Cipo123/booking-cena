@@ -28,7 +28,7 @@ export default function HomePage() {
         <h1
           className="text-4xl md:text-5xl font-black tracking-tight"
           style={{
-            background: 'linear-gradient(135deg, #a78bfa 0%, #f472b6 50%, #fb923c 100%)',
+            background: 'linear-gradient(135deg, #60a5fa 0%, #38bdf8 50%, #34d399 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
           }}

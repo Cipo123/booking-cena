@@ -18,7 +18,7 @@ const TYPE_COLOR: Record<string, string> = {
   aperitivo: 'from-amber-500 to-orange-600',
   colazione: 'from-sky-500 to-blue-600',
   pizza: 'from-red-500 to-rose-600',
-  festa: 'from-pink-500 to-fuchsia-600',
+  festa: 'from-sky-400 to-cyan-500',
   altro: 'from-teal-500 to-emerald-600',
 };
 const MULTI_GRADIENT = 'from-cyan-500 via-blue-500 to-indigo-600';
@@ -62,7 +62,7 @@ function PartCard({ part, availabilities }: { part: EventPart; availabilities: A
   const yes    = partAvail.filter(a => a.status === 'yes');
   const maybe  = partAvail.filter(a => a.status === 'maybe');
   const no     = partAvail.filter(a => a.status === 'no');
-  const gradient = TYPE_COLOR[part.type] ?? 'from-violet-600 to-purple-700';
+  const gradient = TYPE_COLOR[part.type] ?? 'from-blue-600 to-indigo-700';
   const emoji    = EVENT_EMOJI[part.type] ?? '🎈';
 
   return (
@@ -119,7 +119,7 @@ export default function EventPage() {
   );
 
   const isMulti  = event.parts.length > 0;
-  const gradient = isMulti ? MULTI_GRADIENT : (TYPE_COLOR[event.type] ?? 'from-violet-600 to-purple-700');
+  const gradient = isMulti ? MULTI_GRADIENT : (TYPE_COLOR[event.type] ?? 'from-blue-600 to-indigo-700');
   const emoji    = isMulti ? '🎭' : (EVENT_EMOJI[event.type] ?? '🎈');
   const eventLevel = event.availabilities.filter(a => !a.part_id);
   const yes    = eventLevel.filter(a => a.status === 'yes');

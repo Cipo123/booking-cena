@@ -71,7 +71,7 @@ export default function AvailabilityForm({ eventId, parts = [], rsvpDeadline, on
         ? Object.values(partSelections).some(s => s === 'yes')
         : status === 'yes';
       if (fired) {
-        confetti({ particleCount: 160, spread: 80, origin: { y: 0.65 }, colors: ['#a78bfa','#f472b6','#fb923c','#34d399'] });
+        confetti({ particleCount: 160, spread: 80, origin: { y: 0.65 }, colors: ['#60a5fa','#38bdf8','#fb923c','#34d399'] });
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : tr.toast.error;

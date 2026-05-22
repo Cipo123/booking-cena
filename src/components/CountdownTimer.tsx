@@ -68,7 +68,7 @@ export default function CountdownTimer({ date, time }: { date: string; time: str
             <span
               className="text-2xl font-black tabular-nums"
               style={{
-                background: 'linear-gradient(135deg, #a78bfa, #f472b6)',
+                background: 'linear-gradient(135deg, #60a5fa, #38bdf8)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
               }}
