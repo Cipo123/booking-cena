@@ -8,6 +8,7 @@ import type { Event } from '@/lib/db';
 
 function GroupAccessWidget() {
   const router = useRouter();
+  const { tr } = useLang();
   const [code, setCode]       = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
@@ -24,7 +25,7 @@ function GroupAccessWidget() {
         body: JSON.stringify({ code: c }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? 'Codice non valido'); return; }
+      if (!res.ok) { setError(data.error ?? tr.groups.invalidCode); return; }
       // Salva codice + dati in localStorage → /g/[slug] si apre istantaneamente
       localStorage.setItem(`bookingcena_group_${data.slug}`, JSON.stringify({
         code: c,
@@ -33,7 +34,7 @@ function GroupAccessWidget() {
       }));
       router.push(`/g/${data.slug}`);
     } catch {
-      setError('Errore di rete. Riprova.');
+      setError(tr.groups.networkError);
     } finally {
       setLoading(false);
     }
@@ -51,10 +52,10 @@ function GroupAccessWidget() {
         <span className="text-3xl">🔐</span>
         <div>
           <p className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>
-            Hai un codice di accesso?
+            {tr.home.groupTitle}
           </p>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            Inserisci il codice che ti ha condiviso l'organizzatore
+            {tr.home.groupSub}
           </p>
         </div>
       </div>
@@ -64,7 +65,7 @@ function GroupAccessWidget() {
           <input
             value={code}
             onChange={e => { setCode(e.target.value); setError(''); }}
-            placeholder="Codice di accesso…"
+            placeholder={tr.home.groupCodePlaceholder}
             maxLength={80}
             autoComplete="off"
             className="flex-1 rounded-xl px-4 py-3 text-sm"
@@ -80,7 +81,7 @@ function GroupAccessWidget() {
             disabled={loading || !code.trim()}
             className="btn-primary rounded-xl px-5 py-3 text-white font-bold text-sm shrink-0 disabled:opacity-50 transition-opacity"
           >
-            {loading ? '⏳' : 'Entra →'}
+            {loading ? '⏳' : tr.home.groupEnter}
           </button>
         </div>
         {error && (

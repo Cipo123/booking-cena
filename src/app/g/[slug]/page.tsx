@@ -3,12 +3,8 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useLang } from '@/context/providers';
 import type { Event, EventGroup } from '@/lib/db';
-
-const GROUP_TYPE_LABEL: Record<string, string> = {
-  corso: '🎓 Corso', progetto: '💼 Progetto',
-  compagnia: '👥 Compagnia', altro: '🏷️ Gruppo',
-};
 
 // Formato salvato in localStorage
 interface StoredAuth {
@@ -75,7 +71,15 @@ function EventRow({ event }: { event: Event }) {
 /* ─── GroupPage ─── */
 export default function GroupPage() {
   const { slug } = useParams<{ slug: string }>();
+  const { tr }   = useLang();
   const storageKey = `bookingcena_group_${slug}`;
+
+  const typeLabels: Record<string, string> = {
+    corso:    tr.groups.typeCourse,
+    progetto: tr.groups.typeProject,
+    compagnia: tr.groups.typeGroup,
+    altro:    tr.groups.typeOther,
+  };
 
   const [inputKey, setInputKey] = useState('');
   const [group, setGroup]       = useState<Omit<EventGroup, 'access_key'> | null>(null);
@@ -95,14 +99,12 @@ export default function GroupPage() {
       });
       if (!res.ok) {
         if (res.status === 401) {
-          // Codice revocato: pulisce e mostra form
           localStorage.removeItem(storageKey);
           setGroup(null); setEvents([]);
         }
         return;
       }
       const data = await res.json();
-      // Aggiorna dati freschi (potrebbero esserci nuovi eventi)
       setGroup(data.group);
       setEvents(data.events);
       saveAuth(storageKey, { code, group: data.group, events: data.events });
@@ -117,13 +119,11 @@ export default function GroupPage() {
       return;
     }
     if (stored.group) {
-      // Cache completa → mostra subito senza spinner
       setGroup(stored.group);
       setEvents(stored.events);
       setChecking(false);
       silentVerify(stored.code);
     } else {
-      // Vecchio formato (solo codice) → verifica completa
       fullVerify(stored.code);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,14 +141,14 @@ export default function GroupPage() {
       const data = await res.json();
       if (!res.ok) {
         localStorage.removeItem(storageKey);
-        setError(res.status === 401 ? 'Codice non corretto. Riprova.' : (data.error ?? 'Errore'));
+        setError(res.status === 401 ? tr.groups.wrongCode : (data.error ?? tr.groups.networkError));
         return;
       }
       setGroup(data.group);
       setEvents(data.events);
       saveAuth(storageKey, { code: k, group: data.group, events: data.events });
     } catch {
-      setError('Errore di rete. Riprova.');
+      setError(tr.groups.networkError);
     } finally {
       setLoading(false);
       setChecking(false);
@@ -172,7 +172,7 @@ export default function GroupPage() {
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="text-center space-y-3">
           <div className="text-4xl animate-bounce">🔑</div>
-          <p style={{ color: 'var(--text-muted)' }}>Verifica accesso…</p>
+          <p style={{ color: 'var(--text-muted)' }}>{tr.groups.verifyingAccess}</p>
         </div>
       </div>
     );
@@ -180,7 +180,7 @@ export default function GroupPage() {
 
   /* ─── Autenticato → mostra eventi ─── */
   if (group) {
-    const typeLabel = GROUP_TYPE_LABEL[group.type] ?? '🏷️ Gruppo';
+    const typeLabel = typeLabels[group.type] ?? tr.groups.typeOther;
     const upcoming  = events.filter(e => new Date(`${e.date}T${e.time}`) >= new Date(Date.now() - 2 * 3600_000));
     const past      = events.filter(e => new Date(`${e.date}T${e.time}`) <  new Date(Date.now() - 2 * 3600_000));
 
@@ -206,11 +206,11 @@ export default function GroupPage() {
               className="shrink-0 text-xs opacity-40 hover:opacity-70 transition-opacity"
               style={{ color: 'var(--text-muted)' }}
             >
-              🔒 Esci
+              {tr.groups.logoutBtn}
             </button>
           </div>
           <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
-            {events.length} event{events.length !== 1 ? 'i' : 'o'} · accesso salvato su questo dispositivo
+            {events.length} {events.length !== 1 ? 'eventi' : 'evento'} · {tr.groups.savedDevice}
           </p>
         </div>
 
@@ -218,7 +218,7 @@ export default function GroupPage() {
         {upcoming.length > 0 && (
           <div className="space-y-2">
             <h2 className="text-sm font-bold uppercase tracking-wide px-1" style={{ color: 'var(--text-muted)' }}>
-              📅 Prossimi ({upcoming.length})
+              📅 {tr.groups.upcoming} ({upcoming.length})
             </h2>
             {upcoming.map(e => <EventRow key={e.id} event={e} />)}
           </div>
@@ -228,7 +228,7 @@ export default function GroupPage() {
         {past.length > 0 && (
           <div className="space-y-2 opacity-60">
             <h2 className="text-sm font-bold uppercase tracking-wide px-1" style={{ color: 'var(--text-muted)' }}>
-              🗂️ Passati ({past.length})
+              🗂️ {tr.groups.past} ({past.length})
             </h2>
             {past.map(e => <EventRow key={e.id} event={e} />)}
           </div>
@@ -236,7 +236,7 @@ export default function GroupPage() {
 
         {events.length === 0 && (
           <div className="glass rounded-2xl p-8 text-center" style={{ color: 'var(--text-muted)' }}>
-            Nessun evento in questo gruppo ancora.
+            {tr.groups.noEvents}
           </div>
         )}
       </div>
@@ -249,22 +249,22 @@ export default function GroupPage() {
       <div className="text-center space-y-2">
         <div className="text-5xl">🔐</div>
         <h1 className="text-2xl font-black" style={{ color: 'var(--text-primary)' }}>
-          Accesso gruppo
+          {tr.groups.loginTitle}
         </h1>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Inserisci il codice fornito dall'organizzatore.
+          {tr.groups.loginSub}
         </p>
       </div>
       <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-4">
         <div>
           <label className="block text-xs uppercase tracking-wide font-semibold mb-1"
             style={{ color: 'var(--text-muted)' }}>
-            Codice di accesso
+            {tr.groups.codeLabel}
           </label>
           <input
             value={inputKey}
             onChange={e => setInputKey(e.target.value)}
-            placeholder="es. corso2024"
+            placeholder={tr.groups.codePlaceholder}
             autoFocus
             maxLength={80}
           />
@@ -280,7 +280,7 @@ export default function GroupPage() {
           disabled={loading}
           className="btn-primary w-full rounded-xl py-3 text-white font-bold text-sm disabled:opacity-60"
         >
-          {loading ? '⏳ Verifica…' : '🔓 Accedi al gruppo'}
+          {loading ? `⏳ ${tr.groups.verifyingAccess}` : tr.groups.enterBtn}
         </button>
       </form>
     </div>

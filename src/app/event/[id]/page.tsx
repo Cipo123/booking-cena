@@ -217,7 +217,7 @@ export default function EventPage() {
             <span className="text-2xl">🚩</span>
             <div>
               <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
-                {lang === 'it' ? 'Punto di ritrovo' : 'Meeting point'}
+                {tr.event.meetingPoint}
               </p>
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{event.meeting_point}</p>
             </div>

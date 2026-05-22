@@ -1,11 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import { useLang } from '@/context/providers';
 import type { EventPart } from '@/lib/db';
 
 const PART_EMOJI: Record<string, string> = {
   cena: '🍽️', aperitivo: '🥂', colazione: '☕', pizza: '🍕', festa: '🎉', altro: '🎈',
 };
+
+type TravelMode = 'd' | 'w'; // d = driving, w = walking
 
 interface Pin {
   name: string;
@@ -21,14 +24,15 @@ export default function MultiEventMap({
   meetingPoint?: string;
   parts: EventPart[];
 }) {
-  const { lang } = useLang();
+  const { tr } = useLang();
+  const [mode, setMode] = useState<TravelMode>('d');
 
-  // Raccoglie tutti i pin validi: prima il punto di ritrovo, poi le tappe con location
+  // Raccoglie tutti i pin validi
   const pins: Pin[] = [];
 
   if (meetingPoint) {
     pins.push({
-      name: lang === 'it' ? 'Punto di ritrovo' : 'Meeting point',
+      name: tr.event.meetingPoint,
       location: meetingPoint,
       emoji: '🚩',
     });
@@ -47,38 +51,57 @@ export default function MultiEventMap({
 
   if (pins.length === 0) return null;
 
+  const hasMultiplePins = pins.length > 1;
+
   // Costruisce URL embed e link "apri in Maps"
   let embedUrl: string;
   let mapsUrl: string;
 
-  if (pins.length === 1) {
+  if (!hasMultiplePins) {
     const enc = encodeURIComponent(pins[0].location);
     embedUrl = `https://maps.google.com/maps?q=${enc}&output=embed&z=15`;
     mapsUrl  = `https://www.google.com/maps/search/?api=1&query=${enc}`;
   } else {
-    // Directions: saddr=origin, daddr=stop1+to:stop2+…
     const [first, ...rest] = pins;
     const origin = encodeURIComponent(first.location);
     const daddr  = rest
       .map((p, i) => (i === 0 ? encodeURIComponent(p.location) : `to:${encodeURIComponent(p.location)}`))
       .join('+');
-    embedUrl = `https://maps.google.com/maps?saddr=${origin}&daddr=${daddr}&output=embed`;
-    // Link apri percorso: format /dir/A/B/C
+    embedUrl = `https://maps.google.com/maps?saddr=${origin}&daddr=${daddr}&output=embed&dirflg=${mode}`;
     mapsUrl  = `https://www.google.com/maps/dir/${pins.map(p => encodeURIComponent(p.location)).join('/')}`;
   }
 
-  const title     = lang === 'it' ? 'Mappa del percorso' : 'Route overview';
-  const openLabel = lang === 'it' ? 'Apri percorso in Maps' : 'Open route in Maps';
-
   return (
     <div className="glass rounded-2xl overflow-hidden">
-      {/* Header */}
-      <div className="px-5 py-4 flex items-center gap-3 border-b" style={{ borderColor: 'var(--card-border)' }}>
-        <span className="text-xl">🗺️</span>
-        <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{title}</p>
+      {/* Header con titolo + toggle modalità */}
+      <div className="px-5 py-4 flex items-center justify-between gap-3 border-b" style={{ borderColor: 'var(--card-border)' }}>
+        <div className="flex items-center gap-2">
+          <span className="text-xl">🗺️</span>
+          <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{tr.event.mapRouteTitle}</p>
+        </div>
+
+        {/* Toggle auto / piedi — solo se ci sono più pin */}
+        {hasMultiplePins && (
+          <div className="flex rounded-xl overflow-hidden glass-strong">
+            {([['d', tr.event.mapDriving], ['w', tr.event.mapWalking]] as [TravelMode, string][]).map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setMode(val)}
+                className={`px-3 py-1.5 text-xs font-semibold transition-all ${
+                  mode === val
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white'
+                    : 'opacity-50 hover:opacity-80'
+                }`}
+                style={mode !== val ? { color: 'var(--text-secondary)' } : {}}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Legend tappe */}
+      {/* Leggenda tappe */}
       <div className="px-5 py-3 flex flex-wrap gap-2 border-b" style={{ borderColor: 'var(--card-border)' }}>
         {pins.map((pin, i) => (
           <div
@@ -88,9 +111,7 @@ export default function MultiEventMap({
           >
             <span>{pin.emoji}</span>
             <span className="font-semibold">{pin.name}</span>
-            {pin.time && (
-              <span style={{ color: 'var(--text-muted)' }}>· {pin.time}</span>
-            )}
+            {pin.time && <span style={{ color: 'var(--text-muted)' }}>· {pin.time}</span>}
           </div>
         ))}
       </div>
@@ -98,6 +119,7 @@ export default function MultiEventMap({
       {/* Iframe mappa */}
       <div style={{ height: '320px' }}>
         <iframe
+          key={`${mode}-${pins.length}`}
           src={embedUrl}
           width="100%"
           height="320"
@@ -118,7 +140,7 @@ export default function MultiEventMap({
           className="text-xs font-semibold flex items-center gap-1.5 glass-strong rounded-xl px-4 py-2 transition-all hover:scale-105"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <span>↗️</span> {openLabel}
+          <span>↗️</span> {tr.event.mapOpenRoute}
         </a>
       </div>
     </div>

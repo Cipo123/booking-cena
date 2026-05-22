@@ -159,6 +159,10 @@ export default function AdminPage() {
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [groupError, setGroupError]   = useState('');
   const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null);
+  const [editingGroupId, setEditingGroupId]   = useState<string | null>(null);
+  const [editGroupForm, setEditGroupForm]     = useState({ name: '', description: '', type: 'altro', access_key: '' });
+  const [savingGroupId, setSavingGroupId]     = useState<string | null>(null);
+  const [editGroupError, setEditGroupError]   = useState('');
 
   // Create/Edit form
   const [isMulti, setIsMulti]         = useState(false);
@@ -337,6 +341,28 @@ export default function AdminPage() {
       loadGroups();
     } catch { setGroupError('Errore'); }
     finally { setCreatingGroup(false); }
+  }
+
+  function startEditGroup(group: EventGroup) {
+    setEditingGroupId(group.id);
+    setEditGroupForm({ name: group.name, description: group.description, type: group.type, access_key: group.access_key });
+    setEditGroupError('');
+  }
+
+  async function handleSaveGroup(id: string) {
+    setSavingGroupId(id); setEditGroupError('');
+    try {
+      const res = await fetch(`/api/groups/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
+        body: JSON.stringify(editGroupForm),
+      });
+      const d = await res.json();
+      if (!res.ok) { setEditGroupError(d.error ?? 'Errore'); return; }
+      setEditingGroupId(null);
+      loadGroups();
+    } catch { setEditGroupError('Errore'); }
+    finally { setSavingGroupId(null); }
   }
 
   async function handleDeleteGroup(id: string, name: string) {
@@ -826,12 +852,73 @@ export default function AdminPage() {
                         navigator.clipboard.writeText(`${origin}/g/${group.slug}`).catch(() => {});
                       }}
                       className="p-2 text-base opacity-50 hover:opacity-100 rounded-lg" title="Copia link">📋</button>
+                    <button
+                      onClick={() => editingGroupId === group.id ? setEditingGroupId(null) : startEditGroup(group)}
+                      className={`p-2 text-base rounded-lg transition-opacity ${editingGroupId === group.id ? 'opacity-100' : 'opacity-50 hover:opacity-100'}`}
+                      title={lang === 'it' ? 'Modifica' : 'Edit'}>✏️</button>
                     <button onClick={() => handleDeleteGroup(group.id, group.name)} disabled={deletingGroupId === group.id}
                       className="p-2 text-base opacity-50 hover:opacity-100 rounded-lg">
                       {deletingGroupId === group.id ? '⏳' : '🗑️'}
                     </button>
                   </div>
                 </div>
+
+                {/* Form modifica inline */}
+                {editingGroupId === group.id && (
+                  <div className="px-5 pb-5 pt-3 space-y-3 border-t animate-fadeIn" style={{ borderColor: 'var(--card-border)' }}>
+                    <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                      ✏️ {lang === 'it' ? 'Modifica gruppo' : 'Edit group'}
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
+                          {lang === 'it' ? 'Nome *' : 'Name *'}
+                        </label>
+                        <input value={editGroupForm.name} onChange={e => setEditGroupForm(f => ({ ...f, name: e.target.value }))} required maxLength={80} />
+                      </div>
+                      <div>
+                        <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
+                          {lang === 'it' ? 'Tipo' : 'Type'}
+                        </label>
+                        <select value={editGroupForm.type} onChange={e => setEditGroupForm(f => ({ ...f, type: e.target.value }))}>
+                          <option value="corso">{lang === 'it' ? '🎓 Corso' : '🎓 Course'}</option>
+                          <option value="progetto">{lang === 'it' ? '💼 Progetto' : '💼 Project'}</option>
+                          <option value="compagnia">{lang === 'it' ? '👥 Compagnia' : '👥 Group'}</option>
+                          <option value="altro">{lang === 'it' ? '🏷️ Altro' : '🏷️ Other'}</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
+                          🔑 {lang === 'it' ? 'Codice di accesso *' : 'Access code *'}
+                        </label>
+                        <input value={editGroupForm.access_key} onChange={e => setEditGroupForm(f => ({ ...f, access_key: e.target.value }))} required maxLength={80} />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
+                          {lang === 'it' ? 'Descrizione' : 'Description'}
+                        </label>
+                        <input value={editGroupForm.description} onChange={e => setEditGroupForm(f => ({ ...f, description: e.target.value }))} maxLength={200} />
+                      </div>
+                    </div>
+                    {editGroupError && <p className="text-xs" style={{ color: '#f87171' }}>{editGroupError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleSaveGroup(group.id)}
+                        disabled={savingGroupId === group.id}
+                        className="btn-primary rounded-xl px-4 py-2 text-white text-sm font-semibold disabled:opacity-50"
+                      >
+                        {savingGroupId === group.id ? '⏳' : (lang === 'it' ? '💾 Salva' : '💾 Save')}
+                      </button>
+                      <button
+                        onClick={() => setEditingGroupId(null)}
+                        className="glass-strong rounded-xl px-4 py-2 text-sm font-semibold hover:opacity-80"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        {lang === 'it' ? 'Annulla' : 'Cancel'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
