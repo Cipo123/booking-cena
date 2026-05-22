@@ -194,7 +194,7 @@ export const eventsDb = {
   },
 
   async create(
-    data: Omit<Event, 'id' | 'created_at' | 'parts_count' | 'slug'>,
+    data: Omit<Event, 'id' | 'created_at' | 'parts_count' | 'slug' | 'archived'>,
     parts?: Omit<EventPart, 'id' | 'event_id' | 'created_at'>[],
     customSlug?: string
   ): Promise<Event> {
@@ -229,7 +229,7 @@ export const eventsDb = {
 
   async update(
     id: string,
-    data: Omit<Event, 'id' | 'created_at' | 'parts_count' | 'slug'>,
+    data: Omit<Event, 'id' | 'created_at' | 'parts_count' | 'slug' | 'archived'>,
     parts: (Omit<EventPart, 'event_id' | 'created_at'> & { id?: string })[],
     customSlug?: string
   ): Promise<Event> {
