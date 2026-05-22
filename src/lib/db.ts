@@ -26,11 +26,25 @@ export interface Event {
   max_participants: number | null;
   rsvp_deadline: string | null;
   slug: string | null;
+  group_id: string | null;
   created_at: string;
   parts_count?: number;
   yes_count?: number;
   maybe_count?: number;
   no_count?: number;
+}
+
+export type GroupType = 'corso' | 'progetto' | 'compagnia' | 'altro';
+
+export interface EventGroup {
+  id: string;
+  name: string;
+  description: string;
+  type: GroupType;
+  access_key: string;
+  slug: string;
+  created_at: string;
+  events_count?: number;
 }
 
 export interface EventPart {
@@ -166,10 +180,10 @@ export const eventsDb = {
     const created_at = new Date().toISOString();
     const slug = customSlug ? await generateUniqueSlug(customSlug) : await generateUniqueSlug(data.title);
     await sql`
-      INSERT INTO events (id, title, description, type, location, date, time, max_participants, rsvp_deadline, slug, created_at)
+      INSERT INTO events (id, title, description, type, location, date, time, max_participants, rsvp_deadline, slug, group_id, created_at)
       VALUES (${id}, ${data.title}, ${data.description}, ${data.type}, ${data.location},
               ${data.date}, ${data.time}, ${data.max_participants ?? null},
-              ${data.rsvp_deadline ?? null}, ${slug}, ${created_at})
+              ${data.rsvp_deadline ?? null}, ${slug}, ${data.group_id ?? null}, ${created_at})
     `;
     if (parts && parts.length > 0) {
       for (const [i, part] of parts.entries()) {
@@ -209,6 +223,7 @@ export const eventsDb = {
           time             = ${data.time},
           max_participants = ${data.max_participants ?? null},
           rsvp_deadline    = ${data.rsvp_deadline ?? null},
+          group_id         = ${data.group_id ?? null},
           slug             = ${slugToSet}
         WHERE id = ${id}
       `;
@@ -222,7 +237,8 @@ export const eventsDb = {
           date             = ${data.date},
           time             = ${data.time},
           max_participants = ${data.max_participants ?? null},
-          rsvp_deadline    = ${data.rsvp_deadline ?? null}
+          rsvp_deadline    = ${data.rsvp_deadline ?? null},
+          group_id         = ${data.group_id ?? null}
         WHERE id = ${id}
       `;
     }
@@ -445,5 +461,86 @@ export const pushDb = {
 
   async removeEndpoint(endpoint: string): Promise<void> {
     await sql`DELETE FROM push_subscriptions WHERE endpoint = ${endpoint}`;
+  },
+};
+
+/* ── Groups ──────────────────────────────────────────────── */
+async function generateUniqueGroupSlug(base: string): Promise<string> {
+  let slug = slugify(base);
+  if (!slug) slug = randomUUID().substring(0, 8);
+  let attempt = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const candidate = attempt === 0 ? slug : `${slug}-${attempt}`;
+    const existing = await sql`SELECT id FROM event_groups WHERE slug = ${candidate} LIMIT 1`;
+    if (existing.length === 0) return candidate;
+    attempt++;
+  }
+}
+
+export const groupsDb = {
+  async getAll(): Promise<EventGroup[]> {
+    return sql<EventGroup[]>`
+      SELECT g.*, COUNT(e.id)::int AS events_count
+      FROM event_groups g
+      LEFT JOIN events e ON e.group_id = g.id
+      GROUP BY g.id
+      ORDER BY g.created_at DESC
+    `;
+  },
+
+  async getBySlug(slug: string): Promise<EventGroup | null> {
+    const rows = await sql<EventGroup[]>`SELECT * FROM event_groups WHERE slug = ${slug} LIMIT 1`;
+    return rows[0] ?? null;
+  },
+
+  async getById(id: string): Promise<EventGroup | null> {
+    const rows = await sql<EventGroup[]>`SELECT * FROM event_groups WHERE id = ${id} LIMIT 1`;
+    return rows[0] ?? null;
+  },
+
+  async create(data: Omit<EventGroup, 'id' | 'created_at' | 'events_count'>): Promise<EventGroup> {
+    const id = randomUUID();
+    const created_at = new Date().toISOString();
+    const slug = await generateUniqueGroupSlug(data.slug || data.name);
+    const rows = await sql<EventGroup[]>`
+      INSERT INTO event_groups (id, name, description, type, access_key, slug, created_at)
+      VALUES (${id}, ${data.name}, ${data.description}, ${data.type}, ${data.access_key}, ${slug}, ${created_at})
+      RETURNING *
+    `;
+    return rows[0];
+  },
+
+  async update(id: string, data: Partial<Pick<EventGroup, 'name' | 'description' | 'type' | 'access_key'>>): Promise<EventGroup> {
+    const rows = await sql<EventGroup[]>`
+      UPDATE event_groups SET
+        name        = COALESCE(${data.name        ?? null}, name),
+        description = COALESCE(${data.description ?? null}, description),
+        type        = COALESCE(${data.type        ?? null}, type),
+        access_key  = COALESCE(${data.access_key  ?? null}, access_key)
+      WHERE id = ${id}
+      RETURNING *
+    `;
+    return rows[0];
+  },
+
+  async delete(id: string): Promise<void> {
+    await sql`DELETE FROM event_groups WHERE id = ${id}`;
+  },
+
+  async getEvents(groupId: string): Promise<Event[]> {
+    return sql<Event[]>`
+      SELECT e.*,
+        COUNT(DISTINCT ep.id)::int AS parts_count,
+        COUNT(DISTINCT CASE WHEN a.status = 'yes'   AND a.part_id IS NULL THEN a.id END)::int AS yes_count,
+        COUNT(DISTINCT CASE WHEN a.status = 'maybe' AND a.part_id IS NULL THEN a.id END)::int AS maybe_count,
+        COUNT(DISTINCT CASE WHEN a.status = 'no'    AND a.part_id IS NULL THEN a.id END)::int AS no_count
+      FROM events e
+      LEFT JOIN event_parts  ep ON ep.event_id = e.id
+      LEFT JOIN availabilities a ON a.event_id = e.id
+      WHERE e.group_id = ${groupId}
+      GROUP BY e.id
+      ORDER BY e.date ASC, e.time ASC
+    `;
   },
 };

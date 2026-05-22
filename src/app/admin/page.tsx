@@ -5,7 +5,7 @@ import { useLang } from '@/context/providers';
 import LocationAutocomplete from '@/components/LocationAutocomplete';
 import MapWidget from '@/components/MapWidget';
 import AttendanceDonut from '@/components/AttendanceDonut';
-import type { Event, EventPart, DatePoll } from '@/lib/db';
+import type { Event, EventPart, DatePoll, EventGroup } from '@/lib/db';
 import { slugify } from '@/lib/utils';
 
 const EVENT_TYPES_IT = [
@@ -152,12 +152,20 @@ export default function AdminPage() {
   const [editingId, setEditingId]     = useState<string | null>(null);
   const [notifyEventId, setNotifyEventId] = useState<string | null>(null);
 
+  // Groups
+  const [groups, setGroups]           = useState<EventGroup[]>([]);
+  const [groupForm, setGroupForm]     = useState({ name: '', description: '', type: 'altro', access_key: '', slug: '' });
+  const [showGroupForm, setShowGroupForm] = useState(false);
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [groupError, setGroupError]   = useState('');
+  const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null);
+
   // Create/Edit form
   const [isMulti, setIsMulti]         = useState(false);
   const [parts, setParts]             = useState<Part[]>([emptyPart()]);
   const [form, setForm]               = useState({
     title: '', description: '', type: 'cena', location: '',
-    date: '', time: '20:00', max_participants: '', rsvp_deadline: '', slug: '',
+    date: '', time: '20:00', max_participants: '', rsvp_deadline: '', slug: '', group_id: '',
   });
   const [creating, setCreating]       = useState(false);
   const [createError, setCreateError] = useState('');
@@ -195,7 +203,15 @@ export default function AdminPage() {
     } catch { /* ignore */ }
   }, []);
 
-  useEffect(() => { if (authed) { loadEvents(); loadPolls(); } }, [authed, loadEvents, loadPolls]);
+  const loadGroups = useCallback(async () => {
+    try {
+      const res = await fetch('/api/groups', { headers: { 'x-admin-password': password } });
+      const d = await res.json();
+      if (Array.isArray(d)) setGroups(d);
+    } catch { /* ignore */ }
+  }, [password]);
+
+  useEffect(() => { if (authed) { loadEvents(); loadPolls(); loadGroups(); } }, [authed, loadEvents, loadPolls, loadGroups]);
 
   // Auto-fill slug from title
   useEffect(() => {
@@ -214,6 +230,7 @@ export default function AdminPage() {
         max_participants: form.max_participants ? Number(form.max_participants) : null,
         rsvp_deadline: form.rsvp_deadline || null,
         slug: form.slug || undefined,
+        group_id: form.group_id || null,
         parts: isMulti ? parts : [],
       };
       const url    = editingId ? `/api/events/${editingId}` : '/api/events';
@@ -229,7 +246,7 @@ export default function AdminPage() {
         throw new Error(d.error ?? 'Errore');
       }
       setCreateSuccess(editingId ? tr.admin.editSuccess : tr.admin.created);
-      setForm({ title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '', slug: '' });
+      setForm({ title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '', slug: '', group_id: '' });
       setParts([emptyPart()]); setIsMulti(false); setEditingId(null);
       loadEvents();
     } catch (err: unknown) {
@@ -276,6 +293,7 @@ export default function AdminPage() {
       max_participants: event.max_participants?.toString() ?? '',
       rsvp_deadline: event.rsvp_deadline ?? '',
       slug: event.slug ?? '',
+      group_id: event.group_id ?? '',
     });
     if (multi) {
       try {
@@ -293,12 +311,40 @@ export default function AdminPage() {
 
   function cancelEdit() {
     setEditingId(null); setCreateError(''); setCreateSuccess('');
-    setForm({ title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '', slug: '' });
+    setForm({ title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '', slug: '', group_id: '' });
     setParts([emptyPart()]); setIsMulti(false);
   }
 
   function updatePart(i: number, field: keyof Part, val: string) {
     setParts(ps => ps.map((p, idx) => idx === i ? { ...p, [field]: val } : p));
+  }
+
+  // Groups
+  async function handleCreateGroup(e: React.FormEvent) {
+    e.preventDefault();
+    setGroupError(''); setCreatingGroup(true);
+    try {
+      const res = await fetch('/api/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
+        body: JSON.stringify(groupForm),
+      });
+      const d = await res.json();
+      if (!res.ok) { setGroupError(d.error ?? 'Errore'); return; }
+      setGroupForm({ name: '', description: '', type: 'altro', access_key: '', slug: '' });
+      setShowGroupForm(false);
+      loadGroups();
+    } catch { setGroupError('Errore'); }
+    finally { setCreatingGroup(false); }
+  }
+
+  async function handleDeleteGroup(id: string, name: string) {
+    if (!confirm(`Eliminare il gruppo "${name}"? Gli eventi non verranno eliminati.`)) return;
+    setDeletingGroupId(id);
+    try {
+      await fetch(`/api/groups/${id}`, { method: 'DELETE', headers: { 'x-admin-password': password } });
+      loadGroups();
+    } finally { setDeletingGroupId(null); }
   }
 
   // Polls
@@ -473,6 +519,20 @@ export default function AdminPage() {
                 {lang === 'it' ? 'Dopo questa data/ora il form di risposta sarà bloccato.' : 'After this date/time the response form will be locked.'}
               </p>
             </div>
+
+            {groups.length > 0 && (
+              <div className="sm:col-span-2">
+                <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
+                  👥 {lang === 'it' ? 'Gruppo (opzionale)' : 'Group (optional)'}
+                </label>
+                <select value={form.group_id} onChange={e => setForm(f => ({ ...f, group_id: e.target.value }))}>
+                  <option value="">{lang === 'it' ? '— Nessun gruppo —' : '— No group —'}</option>
+                  {groups.map(g => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Parts section */}
@@ -642,6 +702,129 @@ export default function AdminPage() {
               );
             })}
           </div>
+        )}
+      </div>
+
+      {/* ── Groups section ─────────────────────────────────── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
+            👥 {lang === 'it' ? `Gruppi (${groups.length})` : `Groups (${groups.length})`}
+          </h2>
+          <button
+            onClick={() => setShowGroupForm(v => !v)}
+            className="btn-primary rounded-xl px-4 py-2 text-white text-sm font-semibold"
+          >
+            {showGroupForm ? '✕' : `+ ${lang === 'it' ? 'Nuovo gruppo' : 'New group'}`}
+          </button>
+        </div>
+
+        {showGroupForm && (
+          <form onSubmit={handleCreateGroup} className="glass rounded-2xl p-5 space-y-4 animate-fadeInUp">
+            <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+              ➕ {lang === 'it' ? 'Crea gruppo' : 'Create group'}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2">
+                <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
+                  {lang === 'it' ? 'Nome *' : 'Name *'}
+                </label>
+                <input value={groupForm.name} onChange={e => setGroupForm(f => ({ ...f, name: e.target.value, slug: f.slug || e.target.value.toLowerCase().replace(/\s+/g, '-') }))}
+                  placeholder={lang === 'it' ? 'Es. Corso Marketing 2024' : 'E.g. Marketing Course 2024'}
+                  required maxLength={80} />
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
+                  {lang === 'it' ? 'Tipo' : 'Type'}
+                </label>
+                <select value={groupForm.type} onChange={e => setGroupForm(f => ({ ...f, type: e.target.value }))}>
+                  <option value="corso">🎓 Corso</option>
+                  <option value="progetto">💼 Progetto</option>
+                  <option value="compagnia">👥 Compagnia</option>
+                  <option value="altro">🏷️ Altro</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
+                  🔑 {lang === 'it' ? 'Chiave di accesso *' : 'Access key *'}
+                </label>
+                <input value={groupForm.access_key} onChange={e => setGroupForm(f => ({ ...f, access_key: e.target.value }))}
+                  placeholder={lang === 'it' ? 'Es. corso2024' : 'E.g. course2024'}
+                  required maxLength={80} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
+                  {lang === 'it' ? 'Descrizione (opzionale)' : 'Description (optional)'}
+                </label>
+                <input value={groupForm.description} onChange={e => setGroupForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder={lang === 'it' ? 'Breve descrizione...' : 'Short description...'}
+                  maxLength={200} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
+                  🔗 {lang === 'it' ? 'URL gruppo (slug)' : 'Group URL (slug)'}
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>/g/</span>
+                  <input value={groupForm.slug} onChange={e => setGroupForm(f => ({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))}
+                    placeholder={lang === 'it' ? 'es. corso-marketing' : 'e.g. marketing-course'}
+                    maxLength={60} className="flex-1" />
+                </div>
+              </div>
+            </div>
+            {groupError && <p className="text-sm" style={{ color: '#f87171' }}>{groupError}</p>}
+            <button type="submit" disabled={creatingGroup}
+              className="btn-primary rounded-xl px-6 py-3 text-white font-bold text-sm disabled:opacity-50">
+              {creatingGroup ? '⏳' : (lang === 'it' ? '✨ Crea gruppo' : '✨ Create group')}
+            </button>
+          </form>
+        )}
+
+        {groups.length > 0 ? (
+          <div className="space-y-2">
+            {groups.map(group => (
+              <div key={group.id} className="glass rounded-2xl overflow-hidden">
+                <div className="px-5 py-4 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{group.name}</p>
+                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--card-bg)', color: 'var(--text-muted)' }}>
+                        {group.type}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399' }}>
+                        {group.events_count ?? 0} eventi
+                      </span>
+                    </div>
+                    <p className="text-xs mt-0.5 font-mono" style={{ color: 'var(--text-muted)' }}>
+                      /g/{group.slug} · 🔑 {group.access_key}
+                    </p>
+                    {group.description && (
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{group.description}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <a href={`/g/${group.slug}`} target="_blank" rel="noopener noreferrer"
+                      className="p-2 text-base opacity-50 hover:opacity-100 rounded-lg" title="Apri">🔗</a>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${origin}/g/${group.slug}`).catch(() => {});
+                      }}
+                      className="p-2 text-base opacity-50 hover:opacity-100 rounded-lg" title="Copia link">📋</button>
+                    <button onClick={() => handleDeleteGroup(group.id, group.name)} disabled={deletingGroupId === group.id}
+                      className="p-2 text-base opacity-50 hover:opacity-100 rounded-lg">
+                      {deletingGroupId === group.id ? '⏳' : '🗑️'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          !showGroupForm && (
+            <div className="glass rounded-2xl p-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+              {lang === 'it' ? 'Nessun gruppo ancora. Creane uno per raggruppare gli eventi!' : 'No groups yet. Create one to group events!'}
+            </div>
+          )
         )}
       </div>
 
