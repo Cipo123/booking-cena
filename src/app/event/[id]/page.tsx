@@ -212,17 +212,14 @@ export default function EventPage() {
 
       {/* Meeting point */}
       {event.meeting_point && (
-        <div className="glass rounded-2xl overflow-hidden">
-          <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--card-border)' }}>
-            <span className="text-2xl">🚩</span>
-            <div>
-              <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
-                {tr.event.meetingPoint}
-              </p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{event.meeting_point}</p>
-            </div>
+        <div className="glass rounded-2xl px-5 py-4 flex items-center gap-3">
+          <span className="text-2xl">🚩</span>
+          <div>
+            <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+              {tr.event.meetingPoint}
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{event.meeting_point}</p>
           </div>
-          <MapWidget location={event.meeting_point} initialOpen={true} />
         </div>
       )}
 
