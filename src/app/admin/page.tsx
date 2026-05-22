@@ -48,9 +48,10 @@ export default function AdminPage() {
     setLoadingEvents(true);
     try {
       const res = await fetch('/api/events');
+      if (!res.ok) { setEvents([]); return; }
       const data = await res.json();
       setEvents(Array.isArray(data) ? data : []);
-    } finally { setLoadingEvents(false); }
+    } catch { setEvents([]); } finally { setLoadingEvents(false); }
   }, []);
 
   useEffect(() => { if (authed) loadEvents(); }, [authed, loadEvents]);
@@ -229,7 +230,7 @@ export default function AdminPage() {
                 <div key={i} className="glass-strong rounded-xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-                      Tappa {i + 1}
+                      {tr.admin.partIndex} {i + 1}
                     </span>
                     {parts.length > 1 && (
                       <button type="button" onClick={() => setParts(ps => ps.filter((_, idx) => idx !== i))}
@@ -238,7 +239,7 @@ export default function AdminPage() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Nome *</label>
+                      <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.partNameLabel}</label>
                       <input value={part.title} onChange={e => updatePart(i, 'title', e.target.value)}
                         placeholder={tr.admin.partNamePlaceholder} required={isMulti} />
                     </div>
