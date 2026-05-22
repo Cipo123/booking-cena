@@ -98,6 +98,54 @@ export const eventsDb = {
     await sql`DELETE FROM events WHERE id = ${id}`;
   },
 
+  async update(
+    id: string,
+    data: Omit<Event, 'id' | 'created_at' | 'parts_count'>,
+    parts: (Omit<EventPart, 'event_id' | 'created_at'> & { id?: string })[]
+  ): Promise<Event> {
+    await sql`
+      UPDATE events SET
+        title            = ${data.title},
+        description      = ${data.description},
+        type             = ${data.type},
+        location         = ${data.location},
+        date             = ${data.date},
+        time             = ${data.time},
+        max_participants = ${data.max_participants ?? null},
+        rsvp_deadline    = ${data.rsvp_deadline ?? null}
+      WHERE id = ${id}
+    `;
+
+    // Diff parts: delete removed, update existing, insert new
+    const existing = await sql<{ id: string }[]>`SELECT id FROM event_parts WHERE event_id = ${id}`;
+    const keepIds  = new Set(parts.filter(p => p.id).map(p => p.id as string));
+
+    for (const { id: partId } of existing.filter(e => !keepIds.has(e.id))) {
+      await sql`DELETE FROM availabilities WHERE part_id = ${partId}`;
+      await sql`DELETE FROM event_parts  WHERE id        = ${partId}`;
+    }
+
+    for (const [i, part] of parts.entries()) {
+      if (part.id) {
+        await sql`
+          UPDATE event_parts SET
+            title       = ${part.title},
+            type        = ${part.type},
+            description = ${part.description},
+            location    = ${part.location},
+            time        = ${part.time},
+            end_time    = ${part.end_time ?? ''},
+            order_index = ${i}
+          WHERE id = ${part.id} AND event_id = ${id}
+        `;
+      } else {
+        await eventPartsDb.create(id, { ...part, end_time: part.end_time ?? '', order_index: i });
+      }
+    }
+
+    return (await sql<Event[]>`SELECT * FROM events WHERE id = ${id}`)[0];
+  },
+
   async getWithAvailabilities(id: string): Promise<EventWithAvailabilities | null> {
     const events = await sql<Event[]>`SELECT * FROM events WHERE id = ${id} LIMIT 1`;
     if (!events[0]) return null;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLang } from '@/context/providers';
 import LocationAutocomplete from '@/components/LocationAutocomplete';
 import MapWidget from '@/components/MapWidget';
@@ -22,7 +22,7 @@ const TYPE_COLOR: Record<string, string> = {
   festa: 'from-sky-400 to-cyan-500', altro: 'from-teal-500 to-emerald-600',
 };
 
-interface Part { title: string; type: string; location: string; time: string; end_time: string; description: string; }
+interface Part { id?: string; title: string; type: string; location: string; time: string; end_time: string; description: string; }
 const emptyPart = (): Part => ({ title: '', type: 'aperitivo', location: '', time: '19:00', end_time: '', description: '' });
 
 /** Collapsible map section per event row in admin list */
@@ -106,10 +106,12 @@ export default function AdminPage() {
     title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '',
   });
   const [exportingId, setExportingId] = useState<string | null>(null);
+  const [editingId, setEditingId]     = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
   const [creating, setCreating]     = useState(false);
   const [createError, setCreateError]   = useState('');
   const [createSuccess, setCreateSuccess] = useState('');
+  const formRef = useRef<HTMLDivElement>(null);
 
   const loadEvents = useCallback(async () => {
     setLoadingEvents(true);
@@ -129,14 +131,18 @@ export default function AdminPage() {
     try {
       const body: Record<string, unknown> = {
         ...form,
-        type: isMulti ? 'altro' : form.type,   // multi-tappa: nessuna categoria generale
+        type: isMulti ? 'altro' : form.type,
         max_participants: form.max_participants ? Number(form.max_participants) : null,
         rsvp_deadline: form.rsvp_deadline || null,
+        // Always send parts array: populated for multi, empty [] for simple (clears old parts on PUT)
+        parts: isMulti ? parts : [],
       };
-      if (isMulti && parts.length > 0) body.parts = parts;
 
-      const res = await fetch('/api/events', {
-        method: 'POST',
+      const url    = editingId ? `/api/events/${editingId}` : '/api/events';
+      const method = editingId ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
         body: JSON.stringify(body),
       });
@@ -145,9 +151,9 @@ export default function AdminPage() {
         if (res.status === 401) { setAuthed(false); setAuthError(tr.admin.wrongPassword); return; }
         throw new Error(d.error ?? 'Errore');
       }
-      setCreateSuccess(tr.admin.created);
+      setCreateSuccess(editingId ? tr.admin.editSuccess : tr.admin.created);
       setForm({ title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '' });
-      setParts([emptyPart()]); setIsMulti(false);
+      setParts([emptyPart()]); setIsMulti(false); setEditingId(null);
       loadEvents();
     } catch (err: unknown) {
       setCreateError(err instanceof Error ? err.message : 'Errore imprevisto');
@@ -177,6 +183,45 @@ export default function AdminPage() {
       a.click();
       URL.revokeObjectURL(url);
     } finally { setExportingId(null); }
+  }
+
+  async function handleEdit(event: Event & { parts_count?: number }) {
+    const partsCount = (event as Event & { parts_count?: number }).parts_count ?? 0;
+    setCreateError(''); setCreateSuccess('');
+    setEditingId(event.id);
+    const multi = partsCount > 0;
+    setIsMulti(multi);
+    setForm({
+      title: event.title,
+      description: event.description,
+      type: event.type,
+      location: event.location,
+      date: event.date,
+      time: event.time,
+      max_participants: event.max_participants?.toString() ?? '',
+      rsvp_deadline: event.rsvp_deadline ?? '',
+    });
+    if (multi) {
+      try {
+        const res  = await fetch(`/api/events/${event.id}`);
+        const data = await res.json();
+        setParts((data.parts as EventPart[]).map(p => ({
+          id: p.id, title: p.title, type: p.type,
+          location: p.location, time: p.time,
+          end_time: p.end_time, description: p.description,
+        })));
+      } catch { setParts([emptyPart()]); }
+    } else {
+      setParts([emptyPart()]);
+    }
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setCreateError(''); setCreateSuccess('');
+    setForm({ title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '' });
+    setParts([emptyPart()]); setIsMulti(false);
   }
 
   function updatePart(i: number, field: keyof Part, val: string) {
@@ -234,10 +279,12 @@ export default function AdminPage() {
         </button>
       </div>
 
-      {/* Create form */}
-      <div className="glass rounded-2xl p-6 space-y-5">
+      {/* Create / Edit form */}
+      <div ref={formRef} className="glass rounded-2xl p-6 space-y-5">
         <div className="flex items-center justify-between">
-          <h2 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>{tr.admin.createTitle}</h2>
+          <h2 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
+            {editingId ? tr.admin.editTitle : tr.admin.createTitle}
+          </h2>
           {/* Simple / Multi toggle */}
           <div className="flex rounded-xl overflow-hidden glass">
             {[{ val: false, label: tr.admin.simpleMode }, { val: true, label: tr.admin.multiMode }].map(({ val, label }) => (
@@ -380,13 +427,24 @@ export default function AdminPage() {
             </div>
           )}
 
-          {createError && <p className="text-sm rounded-xl px-3 py-2" style={{ color: '#f87171', background: 'rgba(244,63,94,0.1)' }}>{createError}</p>}
+          {createError   && <p className="text-sm rounded-xl px-3 py-2" style={{ color: '#f87171', background: 'rgba(239,68,68,0.1)' }}>{createError}</p>}
           {createSuccess && <p className="text-sm rounded-xl px-3 py-2" style={{ color: '#34d399', background: 'rgba(52,211,153,0.1)' }}>{createSuccess}</p>}
 
-          <button type="submit" disabled={creating}
-            className="btn-primary rounded-xl px-6 py-3 text-white font-bold text-sm disabled:opacity-50">
-            {creating ? tr.admin.creating : tr.admin.createBtn}
-          </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button type="submit" disabled={creating}
+              className="btn-primary rounded-xl px-6 py-3 text-white font-bold text-sm disabled:opacity-50">
+              {creating
+                ? (editingId ? tr.admin.editing : tr.admin.creating)
+                : (editingId ? tr.admin.editBtn  : tr.admin.createBtn)}
+            </button>
+            {editingId && (
+              <button type="button" onClick={cancelEdit}
+                className="glass-strong rounded-xl px-4 py-3 text-sm font-semibold transition-all hover:opacity-80"
+                style={{ color: 'var(--text-secondary)' }}>
+                {tr.admin.cancelEdit}
+              </button>
+            )}
+          </div>
         </form>
       </div>
 
@@ -409,7 +467,10 @@ export default function AdminPage() {
                 { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }
               );
               return (
-                <div key={event.id} className="glass rounded-2xl overflow-hidden">
+                <div key={event.id}
+                  className="glass rounded-2xl overflow-hidden transition-all"
+                  style={editingId === event.id ? { boxShadow: '0 0 0 2px #60a5fa' } : {}}
+                >
                   <div className="flex">
                   <div className={`bg-gradient-to-b ${gradient} w-1.5 shrink-0`} />
                   <div className="flex-1 px-5 py-4 flex items-center justify-between gap-4 min-w-0">
@@ -429,6 +490,11 @@ export default function AdminPage() {
                     <div className="flex items-center gap-2 shrink-0">
                       <a href={`/event/${event.id}`} target="_blank" rel="noopener noreferrer"
                         className="text-lg opacity-50 hover:opacity-100 transition-opacity" title="Apri">🔗</a>
+                      <button
+                        onClick={() => handleEdit(event)}
+                        className={`text-lg transition-opacity ${editingId === event.id ? 'opacity-100' : 'opacity-50 hover:opacity-100'}`}
+                        title="Modifica">✏️
+                      </button>
                       <button
                         onClick={() => handleExportCsv(event.id, event.title)}
                         disabled={exportingId === event.id}
