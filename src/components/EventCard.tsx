@@ -74,8 +74,8 @@ export default function EventCard({ event, index }: { event: Event; index: numbe
           <div className="space-y-1.5">
             {[
               { icon: '📅', text: formattedDate },
-              { icon: '🕗', text: event.time },
-              event.location ? { icon: '📍', text: event.location } : null,
+              !isMulti ? { icon: '🕗', text: event.time } : null,
+              (!isMulti && event.location) ? { icon: '📍', text: event.location } : null,
               event.max_participants ? { icon: '👥', text: `${tr.home.maxPart} ${event.max_participants} ${tr.home.partecipanti}` } : null,
             ].filter(Boolean).map((item, i) => (
               <div key={i} className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>

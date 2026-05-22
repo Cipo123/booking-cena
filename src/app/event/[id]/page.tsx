@@ -71,7 +71,9 @@ function PartCard({ part, availabilities }: { part: EventPart; availabilities: A
         <span className="text-2xl">{emoji}</span>
         <div className="flex-1">
           <p className="text-white font-bold">{part.title}</p>
-          <p className="text-white/70 text-xs">{part.time}{part.location ? ` · ${part.location}` : ''}</p>
+          <p className="text-white/70 text-xs">
+            {part.time}{part.end_time ? ` → ${part.end_time}` : ''}{part.location ? ` · ${part.location}` : ''}
+          </p>
         </div>
         <div className="flex gap-2">
           <span className="text-xs bg-white/20 rounded-full px-2 py-0.5 text-white">✅ {yes.length}</span>
@@ -141,10 +143,12 @@ export default function EventPage() {
             <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
               <span>📅</span><span className="capitalize">{formatDate(event.date, lang)}</span>
             </div>
-            <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-              <span>🕗</span><span>{event.time}</span>
-            </div>
-            {event.location && (
+            {!isMulti && (
+              <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                <span>🕗</span><span>{event.time}</span>
+              </div>
+            )}
+            {!isMulti && event.location && (
               <div className="flex items-center gap-2 text-sm sm:col-span-2" style={{ color: 'var(--text-secondary)' }}>
                 <span>📍</span><span>{event.location}</span>
               </div>

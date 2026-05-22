@@ -36,6 +36,7 @@ export interface EventPart {
   description: string;
   location: string;
   time: string;
+  end_time: string;
   order_index: number;
   created_at: string;
 }
@@ -117,9 +118,9 @@ export const eventPartsDb = {
     const id = randomUUID();
     const created_at = new Date().toISOString();
     const rows = await sql<EventPart[]>`
-      INSERT INTO event_parts (id, event_id, title, type, description, location, time, order_index, created_at)
+      INSERT INTO event_parts (id, event_id, title, type, description, location, time, end_time, order_index, created_at)
       VALUES (${id}, ${event_id}, ${data.title}, ${data.type}, ${data.description},
-              ${data.location}, ${data.time}, ${data.order_index}, ${created_at})
+              ${data.location}, ${data.time}, ${data.end_time ?? ''}, ${data.order_index}, ${created_at})
       RETURNING *
     `;
     return rows[0];

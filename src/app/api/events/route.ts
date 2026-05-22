@@ -21,7 +21,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { title, description, type, location, date, time, max_participants, rsvp_deadline, parts } = body;
 
-    if (!title || !date || !time) {
+    const isMulti = Array.isArray(parts) && parts.length > 0;
+    // For multi-stage events: time is derived from the first stage; location is per-stage
+    const eventTime = isMulti ? (parts[0]?.time ?? '') : time;
+
+    if (!title || !date || (!isMulti && !time)) {
       return NextResponse.json({ error: 'Titolo, data e ora sono obbligatori' }, { status: 400 });
     }
 
@@ -29,14 +33,14 @@ export async function POST(req: NextRequest) {
       {
         title,
         description: description ?? '',
-        type: type ?? 'cena',
-        location: location ?? '',
+        type: isMulti ? 'altro' : (type ?? 'cena'),
+        location: isMulti ? '' : (location ?? ''),
         date,
-        time,
+        time: eventTime,
         max_participants: max_participants ? Number(max_participants) : null,
         rsvp_deadline: rsvp_deadline ?? null,
       },
-      Array.isArray(parts) && parts.length > 0 ? parts : undefined,
+      isMulti ? parts : undefined,
     );
 
     return NextResponse.json(event, { status: 201 });

@@ -20,8 +20,8 @@ const TYPE_COLOR: Record<string, string> = {
   festa: 'from-pink-500 to-fuchsia-600', altro: 'from-teal-500 to-emerald-600',
 };
 
-interface Part { title: string; type: string; location: string; time: string; description: string; }
-const emptyPart = (): Part => ({ title: '', type: 'aperitivo', location: '', time: '19:00', description: '' });
+interface Part { title: string; type: string; location: string; time: string; end_time: string; description: string; }
+const emptyPart = (): Part => ({ title: '', type: 'aperitivo', location: '', time: '19:00', end_time: '', description: '' });
 
 export default function AdminPage() {
   const { tr, lang } = useLang();
@@ -181,20 +181,24 @@ export default function AdminPage() {
                 </select>
               </div>
             )}
-            <div>
-              <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.locationLabel}</label>
-              <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-                placeholder={tr.admin.locationPlaceholder} maxLength={100} />
-            </div>
+            {!isMulti && (
+              <div>
+                <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.locationLabel}</label>
+                <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
+                  placeholder={tr.admin.locationPlaceholder} maxLength={100} />
+              </div>
+            )}
             <div>
               <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.dateLabel}</label>
               <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
                 required min={new Date().toISOString().split('T')[0]} />
             </div>
-            <div>
-              <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.timeLabel}</label>
-              <input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} required />
-            </div>
+            {!isMulti && (
+              <div>
+                <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.timeLabel}</label>
+                <input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} required />
+              </div>
+            )}
             <div>
               <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.maxLabel}</label>
               <input type="number" value={form.max_participants} onChange={e => setForm(f => ({ ...f, max_participants: e.target.value }))}
@@ -253,12 +257,21 @@ export default function AdminPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.timeLabel}</label>
+                      <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.timeStartLabel}</label>
                       <input type="time" value={part.time} onChange={e => updatePart(i, 'time', e.target.value)} required={isMulti} />
                     </div>
                     <div>
+                      <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.timeEndLabel}</label>
+                      <input type="time" value={part.end_time} onChange={e => updatePart(i, 'end_time', e.target.value)} />
+                    </div>
+                    <div className="sm:col-span-2">
                       <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.locationLabel}</label>
                       <input value={part.location} onChange={e => updatePart(i, 'location', e.target.value)} placeholder={tr.admin.locationPlaceholder} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.descLabel}</label>
+                      <textarea value={part.description} onChange={e => updatePart(i, 'description', e.target.value)}
+                        placeholder={tr.admin.descPlaceholder} rows={2} maxLength={300} style={{ resize: 'vertical' }} />
                     </div>
                   </div>
                 </div>
@@ -313,7 +326,7 @@ export default function AdminPage() {
                         )}
                       </div>
                       <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
-                        {dateFormatted} · {event.time}{event.location ? ` · ${event.location}` : ''}
+                        {dateFormatted}{partsCount === 0 ? ` · ${event.time}` : ''}{(partsCount === 0 && event.location) ? ` · ${event.location}` : ''}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
