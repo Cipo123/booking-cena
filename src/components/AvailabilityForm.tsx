@@ -24,13 +24,24 @@ export default function AvailabilityForm({ eventId, parts = [], rsvpDeadline, on
   const [email, setEmail] = useState('');
   const [note, setNote]   = useState('');
 
-  // Precompila nome ed email da localStorage al mount
+  // Precompila nome/email e ripristina eventuale disponibilità già dichiarata
   useEffect(() => {
     const savedName  = localStorage.getItem('bookingcena_username');
     const savedEmail = localStorage.getItem('bookingcena_email');
     if (savedName)  setName(savedName);
     if (savedEmail) setEmail(savedEmail);
-  }, []);
+
+    const savedAvail = localStorage.getItem(`bookingcena_avail_${eventId}`);
+    if (savedAvail) {
+      try {
+        const { simpleStatus: ss, partSelections: ps, name: n } = JSON.parse(savedAvail);
+        if (n) setName(n);
+        if (ps && Object.keys(ps).length > 0) setPartSelections(ps);
+        if (ss) setSimpleStatus(ss);
+        setSuccess(true);
+      } catch { /* ignore */ }
+    }
+  }, [eventId]);
 
   // For multi-part events: {partId: status}
   const [partSelections, setPartSelections] = useState<Record<string, Status>>({});
@@ -72,6 +83,12 @@ export default function AvailabilityForm({ eventId, parts = [], rsvpDeadline, on
       }
 
       showToast(tr.toast.saved, 'success');
+      // Salva la disponibilità localmente per ricordarla al prossimo refresh
+      localStorage.setItem(`bookingcena_avail_${eventId}`, JSON.stringify({
+        simpleStatus: isMulti ? null : status ?? null,
+        partSelections: isMulti ? partSelections : {},
+        name: name.trim(),
+      }));
       setSuccess(true);
       onSuccess?.();
       // 🎉 Confetti on yes/multi-part success

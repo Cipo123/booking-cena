@@ -165,7 +165,7 @@ export default function AdminPage() {
   const [parts, setParts]             = useState<Part[]>([emptyPart()]);
   const [form, setForm]               = useState({
     title: '', description: '', type: 'cena', location: '',
-    date: '', time: '20:00', max_participants: '', rsvp_deadline: '', slug: '', group_id: '',
+    date: '', time: '20:00', max_participants: '', rsvp_deadline: '', slug: '', group_id: '', meeting_point: '',
   });
   const [creating, setCreating]       = useState(false);
   const [createError, setCreateError] = useState('');
@@ -246,7 +246,7 @@ export default function AdminPage() {
         throw new Error(d.error ?? 'Errore');
       }
       setCreateSuccess(editingId ? tr.admin.editSuccess : tr.admin.created);
-      setForm({ title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '', slug: '', group_id: '' });
+      setForm({ title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '', slug: '', group_id: '', meeting_point: '' });
       setParts([emptyPart()]); setIsMulti(false); setEditingId(null);
       loadEvents();
     } catch (err: unknown) {
@@ -294,6 +294,7 @@ export default function AdminPage() {
       rsvp_deadline: event.rsvp_deadline ?? '',
       slug: event.slug ?? '',
       group_id: event.group_id ?? '',
+      meeting_point: event.meeting_point ?? '',
     });
     if (multi) {
       try {
@@ -311,7 +312,7 @@ export default function AdminPage() {
 
   function cancelEdit() {
     setEditingId(null); setCreateError(''); setCreateSuccess('');
-    setForm({ title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '', slug: '', group_id: '' });
+    setForm({ title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '', slug: '', group_id: '', meeting_point: '' });
     setParts([emptyPart()]); setIsMulti(false);
   }
 
@@ -491,6 +492,21 @@ export default function AdminPage() {
                 <LocationAutocomplete value={form.location} onChange={v => setForm(f => ({ ...f, location: v }))} placeholder={tr.admin.locationPlaceholder} />
               </div>
             )}
+            <div className={!isMulti ? '' : 'sm:col-span-2'}>
+              <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
+                🚩 {lang === 'it' ? 'Punto di ritrovo (opzionale)' : 'Meeting point (optional)'}
+              </label>
+              <LocationAutocomplete
+                value={form.meeting_point}
+                onChange={v => setForm(f => ({ ...f, meeting_point: v }))}
+                placeholder={lang === 'it' ? 'Es. Piazza Duomo, Milano' : 'E.g. Times Square, New York'}
+              />
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                {lang === 'it'
+                  ? 'Luogo da cui la comitiva parte — verrà mostrato con mappa sulla pagina evento.'
+                  : 'The gathering spot before heading out — shown with a map on the event page.'}
+              </p>
+            </div>
             <div>
               <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.dateLabel}</label>
               <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))}

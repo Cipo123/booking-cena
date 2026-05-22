@@ -27,6 +27,7 @@ export interface Event {
   rsvp_deadline: string | null;
   slug: string | null;
   group_id: string | null;
+  meeting_point: string;
   created_at: string;
   parts_count?: number;
   yes_count?: number;
@@ -180,10 +181,10 @@ export const eventsDb = {
     const created_at = new Date().toISOString();
     const slug = customSlug ? await generateUniqueSlug(customSlug) : await generateUniqueSlug(data.title);
     await sql`
-      INSERT INTO events (id, title, description, type, location, date, time, max_participants, rsvp_deadline, slug, group_id, created_at)
+      INSERT INTO events (id, title, description, type, location, date, time, max_participants, rsvp_deadline, slug, group_id, meeting_point, created_at)
       VALUES (${id}, ${data.title}, ${data.description}, ${data.type}, ${data.location},
               ${data.date}, ${data.time}, ${data.max_participants ?? null},
-              ${data.rsvp_deadline ?? null}, ${slug}, ${data.group_id ?? null}, ${created_at})
+              ${data.rsvp_deadline ?? null}, ${slug}, ${data.group_id ?? null}, ${data.meeting_point ?? ''}, ${created_at})
     `;
     if (parts && parts.length > 0) {
       for (const [i, part] of parts.entries()) {
@@ -224,6 +225,7 @@ export const eventsDb = {
           max_participants = ${data.max_participants ?? null},
           rsvp_deadline    = ${data.rsvp_deadline ?? null},
           group_id         = ${data.group_id ?? null},
+          meeting_point    = ${data.meeting_point ?? ''},
           slug             = ${slugToSet}
         WHERE id = ${id}
       `;
@@ -238,7 +240,8 @@ export const eventsDb = {
           time             = ${data.time},
           max_participants = ${data.max_participants ?? null},
           rsvp_deadline    = ${data.rsvp_deadline ?? null},
-          group_id         = ${data.group_id ?? null}
+          group_id         = ${data.group_id ?? null},
+          meeting_point    = ${data.meeting_point ?? ''}
         WHERE id = ${id}
       `;
     }

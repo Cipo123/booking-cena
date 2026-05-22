@@ -86,6 +86,7 @@ function PartCard({ part, availabilities }: { part: EventPart; availabilities: A
       {part.description && (
         <p className="px-4 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>{part.description}</p>
       )}
+      {part.location && <MapWidget location={part.location} />}
       {partAvail.length > 0 && (
         <div className="px-4 py-3 space-y-3 border-t" style={{ borderColor: 'var(--card-border)' }}>
           <AttendeeGroup title={tr.event.yesGroup} emoji="✅" color="text-emerald-400" attendees={yes} />
@@ -208,8 +209,24 @@ export default function EventPage() {
       {/* Countdown */}
       <CountdownTimer date={event.date} time={event.time} />
 
-      {/* Map */}
-      {event.location && <MapWidget location={event.location} />}
+      {/* Meeting point */}
+      {event.meeting_point && (
+        <div className="glass rounded-2xl overflow-hidden">
+          <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--card-border)' }}>
+            <span className="text-2xl">🚩</span>
+            <div>
+              <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+                {lang === 'it' ? 'Punto di ritrovo' : 'Meeting point'}
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{event.meeting_point}</p>
+            </div>
+          </div>
+          <MapWidget location={event.meeting_point} initialOpen={true} />
+        </div>
+      )}
+
+      {/* Map (single event location) */}
+      {!isMulti && event.location && <MapWidget location={event.location} />}
 
       {/* Share + QR (with slug URL when available) */}
       <ShareQrWidget title={event.title} url={shareUrl} />

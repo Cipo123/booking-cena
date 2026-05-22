@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { title, description, type, location, date, time, max_participants, rsvp_deadline, parts, slug, group_id } = body;
+    const { title, description, type, location, date, time, max_participants, rsvp_deadline, parts, slug, group_id, meeting_point } = body;
 
     const isMulti = Array.isArray(parts) && parts.length > 0;
     // For multi-stage events: time is derived from the first stage; location is per-stage
@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
         max_participants: max_participants ? Number(max_participants) : null,
         rsvp_deadline: rsvp_deadline ?? null,
         group_id: group_id || null,
+        meeting_point: meeting_point ?? '',
       },
       isMulti ? parts : undefined,
       slug || undefined,
