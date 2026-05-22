@@ -575,7 +575,7 @@ export const groupsDb = {
       FROM events e
       LEFT JOIN event_parts  ep ON ep.event_id = e.id
       LEFT JOIN availabilities a ON a.event_id = e.id
-      WHERE e.group_id = ${groupId}
+      WHERE e.group_id = ${groupId} AND e.archived = FALSE
       GROUP BY e.id
       ORDER BY e.date ASC, e.time ASC
     `;
