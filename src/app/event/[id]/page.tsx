@@ -87,7 +87,6 @@ function PartCard({ part, availabilities }: { part: EventPart; availabilities: A
       {part.description && (
         <p className="px-4 py-2 text-sm" style={{ color: 'var(--text-muted)' }}>{part.description}</p>
       )}
-      {part.location && <MapWidget location={part.location} />}
       {partAvail.length > 0 && (
         <div className="px-4 py-3 space-y-3 border-t" style={{ borderColor: 'var(--card-border)' }}>
           <AttendeeGroup title={tr.event.yesGroup} emoji="✅" color="text-emerald-400" attendees={yes} />
