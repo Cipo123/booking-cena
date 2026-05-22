@@ -517,6 +517,11 @@ export const groupsDb = {
     return rows[0] ?? null;
   },
 
+  async getByAccessKey(code: string): Promise<EventGroup | null> {
+    const rows = await sql<EventGroup[]>`SELECT * FROM event_groups WHERE access_key = ${code} LIMIT 1`;
+    return rows[0] ?? null;
+  },
+
   async create(data: Omit<EventGroup, 'id' | 'created_at' | 'events_count'>): Promise<EventGroup> {
     const id = randomUUID();
     const created_at = new Date().toISOString();

@@ -8,52 +8,83 @@ import type { Event } from '@/lib/db';
 
 function GroupAccessWidget() {
   const router = useRouter();
-  const [slug, setSlug] = useState('');
-  const [open, setOpen] = useState(false);
+  const [code, setCode]       = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState('');
 
-  function go(e: React.FormEvent) {
+  async function go(e: React.FormEvent) {
     e.preventDefault();
-    const s = slug.trim().toLowerCase().replace(/\s+/g, '-');
-    if (s) router.push(`/g/${s}`);
+    const c = code.trim();
+    if (!c) return;
+    setLoading(true); setError('');
+    try {
+      const res = await fetch('/api/groups/access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: c }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? 'Codice non valido'); return; }
+      // Salva il codice in localStorage così /g/[slug] si sblocca subito
+      localStorage.setItem(`bookingcena_group_${data.slug}`, c);
+      router.push(`/g/${data.slug}`);
+    } catch {
+      setError('Errore di rete. Riprova.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <div className="glass rounded-2xl overflow-hidden">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/5 transition-colors"
-      >
-        <span className="flex items-center gap-2 font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
-          🔐 Accedi a un gruppo
-        </span>
-        <span style={{ color: 'var(--text-muted)' }}>{open ? '▲' : '▼'}</span>
-      </button>
-      {open && (
-        <form onSubmit={go} className="px-5 pb-5 space-y-3 animate-fadeIn">
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            Inserisci il nome del gruppo (slug) che ti ha condiviso l'organizzatore, poi entra con il codice segreto.
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{
+        background: 'linear-gradient(135deg, rgba(96,165,250,0.12) 0%, rgba(99,102,241,0.12) 100%)',
+        border: '1px solid rgba(99,102,241,0.35)',
+      }}
+    >
+      <div className="px-5 pt-5 pb-2 flex items-center gap-3">
+        <span className="text-3xl">🔐</span>
+        <div>
+          <p className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>
+            Hai un codice di accesso?
           </p>
-          <div className="flex gap-2">
-            <div className="flex items-center gap-1.5 flex-1 glass-strong rounded-xl px-3">
-              <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>/g/</span>
-              <input
-                value={slug}
-                onChange={e => setSlug(e.target.value)}
-                placeholder="nome-del-gruppo"
-                maxLength={60}
-                className="flex-1 bg-transparent border-0 outline-none py-2 text-sm"
-                style={{ color: 'var(--text-primary)' }}
-              />
-            </div>
-            <button
-              type="submit"
-              className="btn-primary rounded-xl px-4 py-2 text-white font-semibold text-sm shrink-0"
-            >
-              Entra →
-            </button>
-          </div>
-        </form>
-      )}
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            Inserisci il codice che ti ha condiviso l'organizzatore
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={go} className="px-5 pb-5 pt-3 space-y-3">
+        <div className="flex gap-2">
+          <input
+            value={code}
+            onChange={e => { setCode(e.target.value); setError(''); }}
+            placeholder="Codice di accesso…"
+            maxLength={80}
+            autoComplete="off"
+            className="flex-1 rounded-xl px-4 py-3 text-sm"
+            style={{
+              background: 'rgba(255,255,255,0.07)',
+              border: error ? '1px solid #f87171' : '1px solid rgba(255,255,255,0.12)',
+              color: 'var(--text-primary)',
+              outline: 'none',
+            }}
+          />
+          <button
+            type="submit"
+            disabled={loading || !code.trim()}
+            className="btn-primary rounded-xl px-5 py-3 text-white font-bold text-sm shrink-0 disabled:opacity-50 transition-opacity"
+          >
+            {loading ? '⏳' : 'Entra →'}
+          </button>
+        </div>
+        {error && (
+          <p className="text-xs rounded-xl px-3 py-2" style={{ color: '#f87171', background: 'rgba(239,68,68,0.1)' }}>
+            {error}
+          </p>
+        )}
+      </form>
     </div>
   );
 }
