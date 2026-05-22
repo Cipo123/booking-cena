@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useLang } from '@/context/providers';
-import { googleCalendarUrl, outlookCalendarUrl } from '@/lib/calendar';
+import { googleCalendarUrl, outlookCalendarUrl, googleCalendarUrlForPart, outlookCalendarUrlForPart } from '@/lib/calendar';
 import AvailabilityForm from '@/components/AvailabilityForm';
 import MapWidget from '@/components/MapWidget';
 import MultiEventMap from '@/components/MultiEventMap';
@@ -107,6 +107,25 @@ export default function EventPage() {
   const [calOpen, setCalOpen]     = useState(false);
   const [copied, setCopied]       = useState(false);
   const [showQr, setShowQr]       = useState(false);
+  const sharePopupRef = useRef<HTMLDivElement>(null);
+  const calPopupRef   = useRef<HTMLDivElement>(null);
+  const shareBtnRef   = useRef<HTMLButtonElement>(null);
+  const calBtnRef     = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!shareOpen && !calOpen) return;
+    function onMouseDown(e: MouseEvent) {
+      const t = e.target as Node;
+      if (shareOpen && !sharePopupRef.current?.contains(t) && !shareBtnRef.current?.contains(t)) {
+        setShareOpen(false); setShowQr(false);
+      }
+      if (calOpen && !calPopupRef.current?.contains(t) && !calBtnRef.current?.contains(t)) {
+        setCalOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [shareOpen, calOpen]);
 
   async function handleShare(title: string, url: string) {
     if (navigator.share) { await navigator.share({ title, url }).catch(() => {}); }
@@ -217,83 +236,115 @@ export default function EventPage() {
             </div>
           )}
 
-          {/* Share + Calendar inline dropdowns */}
-          <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--card-border)' }}>
+          {/* Share + Calendar buttons + popups */}
+          <div className="pt-2 border-t" style={{ borderColor: 'var(--card-border)' }}>
+            {/* Trigger buttons */}
             <div className="flex flex-wrap gap-2">
               <button
+                ref={shareBtnRef}
                 onClick={() => { setShareOpen(o => !o); setCalOpen(false); setShowQr(false); }}
-                className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105"
+                className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105 active:scale-95"
                 style={{ color: 'var(--text-secondary)' }}
               >
                 <span>📤</span> {tr.event.shareBtn}
               </button>
               <button
+                ref={calBtnRef}
                 onClick={() => { setCalOpen(o => !o); setShareOpen(false); }}
-                className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105"
+                className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105 active:scale-95"
                 style={{ color: 'var(--text-secondary)' }}
               >
                 <span>📆</span> {tr.event.calendar}
               </button>
             </div>
 
+            {/* Share popup */}
             {shareOpen && (
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => handleShare(event.title, shareUrl ?? window.location.href)}
-                  className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105 active:scale-95"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  <span>📤</span> {tr.event.share}
-                </button>
-                <button
-                  onClick={() => handleCopy(shareUrl ?? window.location.href)}
-                  className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105 active:scale-95"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  <span>{copied ? '✅' : '📋'}</span> {copied ? tr.event.copied : tr.event.copyLink}
-                </button>
-                <button
-                  onClick={() => setShowQr(q => !q)}
-                  className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105 active:scale-95"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  <span>📱</span> {showQr ? tr.event.hideQr : tr.event.showQr}
-                </button>
+              <div ref={sharePopupRef} className="mt-3 glass-strong rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)' }}>
+                <div className="flex items-center justify-between px-4 py-2 border-b" style={{ borderColor: 'var(--card-border)' }}>
+                  <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>📤 {tr.event.shareBtn}</span>
+                  <button onClick={() => { setShareOpen(false); setShowQr(false); }} className="text-sm opacity-40 hover:opacity-100 transition-opacity leading-none" style={{ color: 'var(--text-secondary)' }}>✕</button>
+                </div>
+                <div className="p-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleShare(event.title, shareUrl ?? window.location.href)}
+                    className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105 active:scale-95"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    <span>📤</span> {tr.event.share}
+                  </button>
+                  <button
+                    onClick={() => handleCopy(shareUrl ?? window.location.href)}
+                    className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105 active:scale-95"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    <span>{copied ? '✅' : '📋'}</span> {copied ? tr.event.copied : tr.event.copyLink}
+                  </button>
+                  <button
+                    onClick={() => setShowQr(q => !q)}
+                    className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105 active:scale-95"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    <span>📱</span> {showQr ? tr.event.hideQr : tr.event.showQr}
+                  </button>
+                </div>
                 {showQr && shareUrl && (
-                  <div className="w-full flex justify-center pt-1">
+                  <div className="px-4 pb-4 flex justify-center border-t" style={{ borderColor: 'var(--card-border)' }}>
                     <QRCode value={shareUrl} size={140} />
                   </div>
                 )}
               </div>
             )}
 
+            {/* Calendar popup */}
             {calOpen && (
-              <div className="flex flex-wrap gap-2">
-                <a
-                  href={`/api/events/${event.id}/ics`}
-                  className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105 active:scale-95"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  <span>📥</span> {tr.event.downloadIcs}
-                </a>
-                <a
-                  href={googleCalendarUrl(event)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105 active:scale-95"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  <span>📅</span> {tr.event.googleCal}
-                </a>
-                <a
-                  href={outlookCalendarUrl(event)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105 active:scale-95"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  <span>📧</span> {tr.event.outlookCal}
-                </a>
+              <div ref={calPopupRef} className="mt-3 glass-strong rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)' }}>
+                <div className="flex items-center justify-between px-4 py-2 border-b" style={{ borderColor: 'var(--card-border)' }}>
+                  <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>📆 {tr.event.calendar}</span>
+                  <button onClick={() => setCalOpen(false)} className="text-sm opacity-40 hover:opacity-100 transition-opacity leading-none" style={{ color: 'var(--text-secondary)' }}>✕</button>
+                </div>
+
+                {/* Single event */}
+                {!isMulti && (
+                  <div className="p-3 flex flex-wrap gap-2">
+                    <a href={`/api/events/${event.id}/ics`} className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105 active:scale-95" style={{ color: 'var(--text-secondary)' }}>
+                      <span>📥</span> {tr.event.downloadIcs}
+                    </a>
+                    <a href={googleCalendarUrl(event)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105 active:scale-95" style={{ color: 'var(--text-secondary)' }}>
+                      <span>📅</span> {tr.event.googleCal}
+                    </a>
+                    <a href={outlookCalendarUrl(event)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105 active:scale-95" style={{ color: 'var(--text-secondary)' }}>
+                      <span>📧</span> {tr.event.outlookCal}
+                    </a>
+                  </div>
+                )}
+
+                {/* Multi-event: per-tappa rows */}
+                {isMulti && (
+                  <div className="divide-y" style={{ borderColor: 'var(--card-border)' }}>
+                    {event.parts.map(part => (
+                      <div key={part.id} className="px-4 py-3 space-y-2">
+                        <p className="text-xs font-semibold flex flex-wrap items-center gap-1" style={{ color: 'var(--text-primary)' }}>
+                          <span>{EVENT_EMOJI[part.type] ?? '📍'}</span>
+                          <span>{part.title}</span>
+                          {part.time && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>· {part.time}{part.end_time ? ` → ${part.end_time}` : ''}</span>}
+                          {part.location && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>· 📍 {part.location}</span>}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          <a href={`/api/events/${event.id}/ics?part_id=${part.id}`} className="flex items-center gap-1.5 glass-strong rounded-lg px-3 py-1.5 text-xs transition-all hover:scale-105 active:scale-95" style={{ color: 'var(--text-secondary)' }}>
+                            <span>📥</span> ICS
+                          </a>
+                          <a href={googleCalendarUrlForPart(part, event.date)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 glass-strong rounded-lg px-3 py-1.5 text-xs transition-all hover:scale-105 active:scale-95" style={{ color: 'var(--text-secondary)' }}>
+                            <span>📅</span> Google
+                          </a>
+                          <a href={outlookCalendarUrlForPart(part, event.date)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 glass-strong rounded-lg px-3 py-1.5 text-xs transition-all hover:scale-105 active:scale-95" style={{ color: 'var(--text-secondary)' }}>
+                            <span>📧</span> Outlook
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
