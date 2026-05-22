@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { photosDb } from '@/lib/db';
-import { put } from '@vercel/blob';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -27,6 +26,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!file) return NextResponse.json({ error: 'Nessun file allegato' }, { status: 400 });
     if (file.size > 8 * 1024 * 1024) return NextResponse.json({ error: 'File troppo grande (max 8 MB)' }, { status: 400 });
     if (!file.type.startsWith('image/')) return NextResponse.json({ error: 'Solo immagini consentite' }, { status: 400 });
+
+    // Dynamic import to avoid build-time bundling issues
+    const { put } = await import('@vercel/blob');
 
     const ext = file.name.split('.').pop() ?? 'jpg';
     const blob = await put(`events/${id}/${Date.now()}.${ext}`, file, {
