@@ -95,6 +95,16 @@ export default function PhotoWall({ eventId, lang }: Props) {
     el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }, [lightboxIdx]);
 
+  // Lock body scroll when lightbox is open
+  useEffect(() => {
+    if (lightboxIdx >= 0) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [lightboxIdx]);
+
   async function handleDownloadAll() {
     if (dlAll) return;
     setDlAll(true);
@@ -238,7 +248,7 @@ export default function PhotoWall({ eventId, lang }: Props) {
       {/* ── LIGHTBOX ─────────────────────────────────────────── */}
       {currentPhoto && (
         <div
-          className="fixed inset-0 z-50 flex flex-col bg-black/95"
+          className="fixed inset-0 z-50 flex flex-col bg-black/95 overflow-hidden"
           style={{ animation: 'fadeIn .15s ease' }}
           onClick={closeLightbox}
         >
@@ -282,8 +292,11 @@ export default function PhotoWall({ eventId, lang }: Props) {
             </div>
           </div>
 
-          {/* MAIN IMAGE */}
-          <div className="flex-1 flex items-center justify-center relative min-h-0 overflow-hidden px-14">
+          {/* MAIN IMAGE — altezza calcolata rispetto alla viewport */}
+          <div
+            className="flex items-center justify-center relative px-14 w-full"
+            style={{ height: 'calc(100vh - 11rem)' }}
+          >
             {/* Prev */}
             {hasPrev && (
               <button
@@ -300,10 +313,14 @@ export default function PhotoWall({ eventId, lang }: Props) {
               src={currentPhoto.url}
               alt={currentPhoto.uploader_name}
               onClick={e => { e.stopPropagation(); setZoomed(z => !z); }}
-              className={`rounded-xl shadow-2xl transition-all duration-200 select-none ${
-                zoomed
-                  ? 'max-w-full max-h-full cursor-zoom-out object-contain'
-                  : 'max-w-[calc(100vw-7rem)] max-h-full cursor-zoom-in object-contain'
+              style={{
+                maxWidth: 'calc(100vw - 7rem)',
+                maxHeight: zoomed ? 'none' : 'calc(100vh - 11rem)',
+                width: 'auto',
+                height: 'auto',
+              }}
+              className={`rounded-xl shadow-2xl transition-all duration-200 select-none object-contain ${
+                zoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
               }`}
             />
 
