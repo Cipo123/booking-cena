@@ -21,14 +21,23 @@ const TYPE_COLOR: Record<string, string> = {
   festa: 'from-pink-500 to-fuchsia-600',
   altro: 'from-teal-500 to-emerald-600',
 };
+const MULTI_GRADIENT = 'from-violet-600 via-fuchsia-500 to-pink-500';
 
 export default function EventCard({ event, index }: { event: Event; index: number }) {
   const { tr, lang } = useLang();
 
-  const emoji     = EVENT_EMOJI[event.type] ?? '🎈';
-  const label     = (lang === 'it' ? EVENT_LABEL_IT : EVENT_LABEL_EN)[event.type] ?? 'Evento';
-  const gradient  = TYPE_COLOR[event.type] ?? 'from-violet-600 to-purple-700';
-  const hasPartsCount = (event as Event & { parts_count?: number }).parts_count ?? 0;
+  const partsCount = (event as Event & { parts_count?: number }).parts_count ?? 0;
+  const isMulti    = partsCount > 0;
+
+  const gradient = isMulti
+    ? MULTI_GRADIENT
+    : (TYPE_COLOR[event.type] ?? 'from-violet-600 to-purple-700');
+
+  const badgeEmoji  = isMulti ? '🎭' : (EVENT_EMOJI[event.type] ?? '🎈');
+  const badgeLabel  = isMulti
+    ? (lang === 'it' ? 'Multi-tappa' : 'Multi-stage')
+    : ((lang === 'it' ? EVENT_LABEL_IT : EVENT_LABEL_EN)[event.type] ?? 'Evento');
+  const headerEmoji = isMulti ? '🎭' : (EVENT_EMOJI[event.type] ?? '🎈');
 
   const formattedDate = new Date(event.date + 'T00:00:00').toLocaleDateString(
     lang === 'it' ? 'it-IT' : 'en-GB',
@@ -47,11 +56,11 @@ export default function EventCard({ event, index }: { event: Event; index: numbe
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full bg-gradient-to-r ${gradient} text-white`}>
-                  {emoji} {label}
+                  {badgeEmoji} {badgeLabel}
                 </span>
-                {hasPartsCount > 0 && (
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/10 text-white/70">
-                    🎭 multi-tappa
+                {isMulti && (
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/10 text-white/60">
+                    {partsCount} {lang === 'it' ? 'tappe' : 'stages'}
                   </span>
                 )}
               </div>
@@ -59,7 +68,7 @@ export default function EventCard({ event, index }: { event: Event; index: numbe
                 {event.title}
               </h3>
             </div>
-            <div className="text-3xl shrink-0">{emoji}</div>
+            <div className="text-3xl shrink-0">{headerEmoji}</div>
           </div>
 
           <div className="space-y-1.5">

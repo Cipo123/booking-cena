@@ -21,6 +21,7 @@ const TYPE_COLOR: Record<string, string> = {
   festa: 'from-pink-500 to-fuchsia-600',
   altro: 'from-teal-500 to-emerald-600',
 };
+const MULTI_GRADIENT = 'from-violet-600 via-fuchsia-500 to-pink-500';
 
 function formatDate(dateStr: string, lang: string) {
   return new Date(dateStr + 'T00:00:00').toLocaleDateString(
@@ -115,8 +116,9 @@ export default function EventPage() {
     <div className="text-center py-20" style={{ color: 'var(--text-muted)' }}>Evento non trovato</div>
   );
 
-  const gradient = TYPE_COLOR[event.type] ?? 'from-violet-600 to-purple-700';
-  const emoji = EVENT_EMOJI[event.type] ?? '🎈';
+  const isMulti  = event.parts.length > 0;
+  const gradient = isMulti ? MULTI_GRADIENT : (TYPE_COLOR[event.type] ?? 'from-violet-600 to-purple-700');
+  const emoji    = isMulti ? '🎭' : (EVENT_EMOJI[event.type] ?? '🎈');
   const eventLevel = event.availabilities.filter(a => !a.part_id);
   const yes    = eventLevel.filter(a => a.status === 'yes');
   const maybe  = eventLevel.filter(a => a.status === 'maybe');

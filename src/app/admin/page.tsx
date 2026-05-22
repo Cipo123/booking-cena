@@ -62,6 +62,7 @@ export default function AdminPage() {
     try {
       const body: Record<string, unknown> = {
         ...form,
+        type: isMulti ? 'altro' : form.type,   // multi-tappa: nessuna categoria generale
         max_participants: form.max_participants ? Number(form.max_participants) : null,
         rsvp_deadline: form.rsvp_deadline || null,
       };
@@ -172,12 +173,14 @@ export default function AdminPage() {
               <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                 placeholder={tr.admin.titlePlaceholder} required maxLength={80} />
             </div>
-            <div>
-              <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.typeLabel}</label>
-              <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-                {eventTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-            </div>
+            {!isMulti && (
+              <div>
+                <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.typeLabel}</label>
+                <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+                  {eventTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.locationLabel}</label>
               <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
