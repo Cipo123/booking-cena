@@ -1,6 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { photosDb } from '@/lib/db';
 
+const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY ?? '';
+const BUCKET = 'event-photos';
+
+async function uploadToSupabase(file: File, path: string): Promise<string> {
+  const url = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+      'Content-Type': file.type,
+      'x-upsert': 'true',
+    },
+    body: await file.arrayBuffer(),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Upload Supabase fallito: ${err}`);
+  }
+  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
+}
+
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -15,8 +37,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const { id } = await params;
 
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      return NextResponse.json({ error: 'Storage non configurato. Aggiungi BLOB_READ_WRITE_TOKEN.' }, { status: 503 });
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+      return NextResponse.json(
+        { error: 'Storage non configurato. Aggiungi SUPABASE_URL e SUPABASE_SERVICE_KEY.' },
+        { status: 503 }
+      );
     }
 
     const formData = await req.formData();
@@ -27,23 +52,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (file.size > 8 * 1024 * 1024) return NextResponse.json({ error: 'File troppo grande (max 8 MB)' }, { status: 400 });
     if (!file.type.startsWith('image/')) return NextResponse.json({ error: 'Solo immagini consentite' }, { status: 400 });
 
-    // Dynamic import to avoid build-time bundling issues
-    const { put } = await import('@vercel/blob');
-
     const ext = file.name.split('.').pop() ?? 'jpg';
-    const blob = await put(`events/${id}/${Date.now()}.${ext}`, file, {
-      access: 'public',
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    });
+    const storagePath = `${id}/${Date.now()}.${ext}`;
+    const publicUrl = await uploadToSupabase(file, storagePath);
 
     const photo = await photosDb.create({
       event_id: id,
-      url: blob.url,
+      url: publicUrl,
       uploader_name: uploader_name.substring(0, 60),
     });
     return NextResponse.json(photo, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: 'Errore upload' }, { status: 500 });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Errore upload';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
