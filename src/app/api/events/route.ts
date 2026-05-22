@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { title, description, type, location, date, time, max_participants, rsvp_deadline, parts } = body;
+    const { title, description, type, location, date, time, max_participants, rsvp_deadline, parts, slug } = body;
 
     const isMulti = Array.isArray(parts) && parts.length > 0;
     // For multi-stage events: time is derived from the first stage; location is per-stage
@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
         rsvp_deadline: rsvp_deadline ?? null,
       },
       isMulti ? parts : undefined,
+      slug || undefined,
     );
 
     return NextResponse.json(event, { status: 201 });

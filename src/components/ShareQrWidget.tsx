@@ -4,13 +4,13 @@ import { useState, useEffect } from 'react';
 import QRCode from 'react-qr-code';
 import { useLang } from '@/context/providers';
 
-export default function ShareQrWidget({ title }: { title: string }) {
+export default function ShareQrWidget({ title, url: propUrl }: { title: string; url?: string }) {
   const { tr } = useLang();
   const [url, setUrl]       = useState('');
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
 
-  useEffect(() => { setUrl(window.location.href); }, []);
+  useEffect(() => { setUrl(propUrl ?? window.location.href); }, [propUrl]);
 
   async function handleShare() {
     if (navigator.share) {

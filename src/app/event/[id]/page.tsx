@@ -8,6 +8,9 @@ import AvailabilityForm from '@/components/AvailabilityForm';
 import MapWidget from '@/components/MapWidget';
 import CountdownTimer from '@/components/CountdownTimer';
 import ShareQrWidget from '@/components/ShareQrWidget';
+import CommentsFeed from '@/components/CommentsFeed';
+import PhotoWall from '@/components/PhotoWall';
+import PushSubscribeBtn from '@/components/PushSubscribeBtn';
 import type { EventWithAvailabilities, Availability, EventPart } from '@/lib/db';
 
 const EVENT_EMOJI: Record<string, string> = {
@@ -126,6 +129,9 @@ export default function EventPage() {
   const maybe  = eventLevel.filter(a => a.status === 'maybe');
   const no     = eventLevel.filter(a => a.status === 'no');
 
+  const shareBase = typeof window !== 'undefined' ? window.location.origin : '';
+  const shareUrl  = event.slug ? `${shareBase}/e/${event.slug}` : undefined;
+
   return (
     <div className="space-y-5 max-w-2xl mx-auto animate-fadeInUp">
       <a href="/" className="inline-flex items-center gap-2 text-sm transition-colors hover:opacity-80" style={{ color: 'var(--text-muted)' }}>
@@ -137,6 +143,9 @@ export default function EventPage() {
         <div className={`bg-gradient-to-r ${gradient} p-6`}>
           <div className="text-5xl mb-2">{emoji}</div>
           <h1 className="text-2xl md:text-3xl font-black text-white leading-tight">{event.title}</h1>
+          {event.slug && (
+            <p className="text-white/50 text-xs mt-1 font-mono">/e/{event.slug}</p>
+          )}
         </div>
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -178,9 +187,9 @@ export default function EventPage() {
               {event.description}
             </p>
           )}
-          {/* Quick stats (event-level only) */}
+          {/* Quick stats + push button (event-level only) */}
           {event.parts.length === 0 && (
-            <div className="flex items-center gap-3 pt-1">
+            <div className="flex items-center gap-2 pt-1 flex-wrap">
               <div className="flex items-center gap-1.5 rounded-full px-3 py-1" style={{ background: 'rgba(16,185,129,0.15)' }}>
                 <span>✅</span><span className="text-emerald-400 font-bold text-sm">{yes.length}</span>
               </div>
@@ -190,6 +199,7 @@ export default function EventPage() {
               <div className="flex items-center gap-1.5 rounded-full px-3 py-1" style={{ background: 'rgba(244,63,94,0.15)' }}>
                 <span>❌</span><span className="text-rose-400 font-bold text-sm">{no.length}</span>
               </div>
+              <PushSubscribeBtn eventId={event.id} lang={lang} />
             </div>
           )}
         </div>
@@ -201,8 +211,8 @@ export default function EventPage() {
       {/* Map */}
       {event.location && <MapWidget location={event.location} />}
 
-      {/* Share + QR */}
-      <ShareQrWidget title={event.title} />
+      {/* Share + QR (with slug URL when available) */}
+      <ShareQrWidget title={event.title} url={shareUrl} />
 
       {/* Calendar export */}
       <div className="glass rounded-2xl p-5 space-y-3">
@@ -257,6 +267,12 @@ export default function EventPage() {
       {event.parts.length === 0 && eventLevel.length === 0 && (
         <p className="text-center text-sm py-4" style={{ color: 'var(--text-muted)' }}>{tr.event.noAttendees}</p>
       )}
+
+      {/* Photo wall */}
+      <PhotoWall eventId={event.id} lang={lang} />
+
+      {/* Comments feed */}
+      <CommentsFeed eventId={event.id} />
     </div>
   );
 }

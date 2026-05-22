@@ -4,7 +4,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLang } from '@/context/providers';
 import LocationAutocomplete from '@/components/LocationAutocomplete';
 import MapWidget from '@/components/MapWidget';
-import type { Event, EventPart } from '@/lib/db';
+import AttendanceDonut from '@/components/AttendanceDonut';
+import type { Event, EventPart, DatePoll } from '@/lib/db';
+import { slugify } from '@/lib/utils';
 
 const EVENT_TYPES_IT = [
   { value: 'cena', label: '🍽️ Cena' }, { value: 'aperitivo', label: '🥂 Aperitivo' },
@@ -24,6 +26,8 @@ const TYPE_COLOR: Record<string, string> = {
 
 interface Part { id?: string; title: string; type: string; location: string; time: string; end_time: string; description: string; }
 const emptyPart = (): Part => ({ title: '', type: 'aperitivo', location: '', time: '19:00', end_time: '', description: '' });
+
+interface PollOption { label: string; date: string; time: string; }
 
 /** Collapsible map section per event row in admin list */
 function EventMapSection({ event, partsCount }: { event: Event; partsCount: number }) {
@@ -50,10 +54,8 @@ function EventMapSection({ event, partsCount }: { event: Event; partsCount: numb
   return (
     <div className="border-t" style={{ borderColor: 'var(--card-border)' }}>
       {hasLocation ? (
-        /* Simple event: reuse MapWidget which has its own toggle */
         <MapWidget location={event.location} />
       ) : (
-        /* Multi-stage: lazy-load parts then show one map per stage */
         <>
           <button
             onClick={toggle}
@@ -70,7 +72,7 @@ function EventMapSection({ event, partsCount }: { event: Event; partsCount: numb
               {fetching ? (
                 <p className="px-5 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>Caricamento...</p>
               ) : parts.length === 0 ? (
-                <p className="px-5 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>Nessuna tappa con luogo impostato.</p>
+                <p className="px-5 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>Nessuna tappa con luogo.</p>
               ) : (
                 parts.map((p, i) => (
                   <div key={p.id} className={i > 0 ? 'border-t' : ''} style={{ borderColor: 'var(--card-border)' }}>
@@ -89,29 +91,91 @@ function EventMapSection({ event, partsCount }: { event: Event; partsCount: numb
   );
 }
 
+/** Per-event notify panel */
+function NotifyPanel({ eventId, password, lang, onClose }: {
+  eventId: string; password: string; lang: string; onClose: () => void;
+}) {
+  const [title, setTitle] = useState(lang === 'it' ? 'Aggiornamento evento 🔔' : 'Event update 🔔');
+  const [body, setBody]   = useState('');
+  const [sending, setSending] = useState(false);
+  const [result, setResult]   = useState('');
+
+  async function send() {
+    setSending(true); setResult('');
+    try {
+      const res = await fetch(`/api/events/${eventId}/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
+        body: JSON.stringify({ title, body }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setResult(`❌ ${d.error}`); return; }
+      setResult(lang === 'it' ? `✅ Inviata a ${d.sent}/${d.total} dispositivi` : `✅ Sent to ${d.sent}/${d.total} devices`);
+    } catch { setResult('❌ Errore'); }
+    finally { setSending(false); }
+  }
+
+  return (
+    <div className="px-5 py-4 space-y-3 border-t animate-fadeIn" style={{ borderColor: 'var(--card-border)' }}>
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+          🔔 {lang === 'it' ? 'Invia notifica push' : 'Send push notification'}
+        </span>
+        <button onClick={onClose} className="text-xs opacity-50 hover:opacity-100" style={{ color: 'var(--text-muted)' }}>✕</button>
+      </div>
+      <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Titolo" maxLength={60} />
+      <input value={body}  onChange={e => setBody(e.target.value)}  placeholder={lang === 'it' ? 'Messaggio...' : 'Message...'} maxLength={120} />
+      {result && <p className="text-xs" style={{ color: result.startsWith('✅') ? '#34d399' : '#f87171' }}>{result}</p>}
+      <button
+        onClick={send} disabled={sending}
+        className="btn-primary rounded-xl px-4 py-2 text-white text-sm font-semibold disabled:opacity-50"
+      >
+        {sending ? '⏳' : (lang === 'it' ? '📤 Invia' : '📤 Send')}
+      </button>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const { tr, lang } = useLang();
   const eventTypes = lang === 'it' ? EVENT_TYPES_IT : EVENT_TYPES_EN;
 
-  const [password, setPassword] = useState('');
-  const [authed, setAuthed] = useState(false);
-  const [authError, setAuthError] = useState('');
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loadingEvents, setLoadingEvents] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [isMulti, setIsMulti] = useState(false);
-  const [parts, setParts] = useState<Part[]>([emptyPart()]);
+  const [password, setPassword]       = useState('');
+  const [authed, setAuthed]           = useState(false);
+  const [authError, setAuthError]     = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
 
-  const [form, setForm] = useState({
-    title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '',
-  });
+  const [events, setEvents]           = useState<Event[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [deleteId, setDeleteId]       = useState<string | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [editingId, setEditingId]     = useState<string | null>(null);
-  const [loginLoading, setLoginLoading] = useState(false);
-  const [creating, setCreating]     = useState(false);
-  const [createError, setCreateError]   = useState('');
+  const [notifyEventId, setNotifyEventId] = useState<string | null>(null);
+
+  // Create/Edit form
+  const [isMulti, setIsMulti]         = useState(false);
+  const [parts, setParts]             = useState<Part[]>([emptyPart()]);
+  const [form, setForm]               = useState({
+    title: '', description: '', type: 'cena', location: '',
+    date: '', time: '20:00', max_participants: '', rsvp_deadline: '', slug: '',
+  });
+  const [creating, setCreating]       = useState(false);
+  const [createError, setCreateError] = useState('');
   const [createSuccess, setCreateSuccess] = useState('');
   const formRef = useRef<HTMLDivElement>(null);
+
+  // Polls section
+  const [polls, setPolls]             = useState<DatePoll[]>([]);
+  const [pollForm, setPollForm]       = useState({ title: '', description: '' });
+  const [pollOptions, setPollOptions] = useState<PollOption[]>([
+    { label: '', date: '', time: '19:00' },
+    { label: '', date: '', time: '19:00' },
+  ]);
+  const [creatingPoll, setCreatingPoll] = useState(false);
+  const [pollError, setPollError]     = useState('');
+  const [showPollForm, setShowPollForm] = useState(false);
+  const [deletingPollId, setDeletingPollId] = useState<string | null>(null);
+  const [closingPollId, setClosingPollId]   = useState<string | null>(null);
 
   const loadEvents = useCallback(async () => {
     setLoadingEvents(true);
@@ -123,7 +187,22 @@ export default function AdminPage() {
     } catch { setEvents([]); } finally { setLoadingEvents(false); }
   }, []);
 
-  useEffect(() => { if (authed) loadEvents(); }, [authed, loadEvents]);
+  const loadPolls = useCallback(async () => {
+    try {
+      const res = await fetch('/api/polls');
+      const d = await res.json();
+      if (Array.isArray(d)) setPolls(d);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { if (authed) { loadEvents(); loadPolls(); } }, [authed, loadEvents, loadPolls]);
+
+  // Auto-fill slug from title
+  useEffect(() => {
+    if (!editingId) {
+      setForm(f => ({ ...f, slug: slugify(f.title) }));
+    }
+  }, [form.title, editingId]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -134,13 +213,11 @@ export default function AdminPage() {
         type: isMulti ? 'altro' : form.type,
         max_participants: form.max_participants ? Number(form.max_participants) : null,
         rsvp_deadline: form.rsvp_deadline || null,
-        // Always send parts array: populated for multi, empty [] for simple (clears old parts on PUT)
+        slug: form.slug || undefined,
         parts: isMulti ? parts : [],
       };
-
       const url    = editingId ? `/api/events/${editingId}` : '/api/events';
       const method = editingId ? 'PUT' : 'POST';
-
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
@@ -152,7 +229,7 @@ export default function AdminPage() {
         throw new Error(d.error ?? 'Errore');
       }
       setCreateSuccess(editingId ? tr.admin.editSuccess : tr.admin.created);
-      setForm({ title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '' });
+      setForm({ title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '', slug: '' });
       setParts([emptyPart()]); setIsMulti(false); setEditingId(null);
       loadEvents();
     } catch (err: unknown) {
@@ -178,15 +255,13 @@ export default function AdminPage() {
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `${title.replace(/[^a-z0-9]/gi, '_')}_disponibilita.csv`;
-      a.click();
+      a.href = url; a.download = `${title.replace(/[^a-z0-9]/gi, '_')}_disponibilita.csv`; a.click();
       URL.revokeObjectURL(url);
     } finally { setExportingId(null); }
   }
 
   async function handleEdit(event: Event & { parts_count?: number }) {
-    const partsCount = (event as Event & { parts_count?: number }).parts_count ?? 0;
+    const partsCount = event.parts_count ?? 0;
     setCreateError(''); setCreateSuccess('');
     setEditingId(event.id);
     const multi = partsCount > 0;
@@ -200,6 +275,7 @@ export default function AdminPage() {
       time: event.time,
       max_participants: event.max_participants?.toString() ?? '',
       rsvp_deadline: event.rsvp_deadline ?? '',
+      slug: event.slug ?? '',
     });
     if (multi) {
       try {
@@ -211,21 +287,55 @@ export default function AdminPage() {
           end_time: p.end_time, description: p.description,
         })));
       } catch { setParts([emptyPart()]); }
-    } else {
-      setParts([emptyPart()]);
-    }
+    } else { setParts([emptyPart()]); }
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
 
   function cancelEdit() {
-    setEditingId(null);
-    setCreateError(''); setCreateSuccess('');
-    setForm({ title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '' });
+    setEditingId(null); setCreateError(''); setCreateSuccess('');
+    setForm({ title: '', description: '', type: 'cena', location: '', date: '', time: '20:00', max_participants: '', rsvp_deadline: '', slug: '' });
     setParts([emptyPart()]); setIsMulti(false);
   }
 
   function updatePart(i: number, field: keyof Part, val: string) {
     setParts(ps => ps.map((p, idx) => idx === i ? { ...p, [field]: val } : p));
+  }
+
+  // Polls
+  async function handleCreatePoll(e: React.FormEvent) {
+    e.preventDefault();
+    setPollError(''); setCreatingPoll(true);
+    try {
+      const res = await fetch('/api/polls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': password },
+        body: JSON.stringify({ ...pollForm, options: pollOptions.filter(o => o.date) }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setPollError(d.error ?? 'Errore'); return; }
+      setPollForm({ title: '', description: '' });
+      setPollOptions([{ label: '', date: '', time: '19:00' }, { label: '', date: '', time: '19:00' }]);
+      setShowPollForm(false);
+      loadPolls();
+    } catch { setPollError('Errore'); }
+    finally { setCreatingPoll(false); }
+  }
+
+  async function handleDeletePoll(id: string) {
+    if (!confirm('Eliminare questo sondaggio?')) return;
+    setDeletingPollId(id);
+    try {
+      await fetch(`/api/polls/${id}`, { method: 'DELETE', headers: { 'x-admin-password': password } });
+      loadPolls();
+    } finally { setDeletingPollId(null); }
+  }
+
+  async function handleClosePoll(id: string) {
+    setClosingPollId(id);
+    try {
+      await fetch(`/api/polls/${id}/close`, { method: 'POST', headers: { 'x-admin-password': password } });
+      loadPolls();
+    } finally { setClosingPollId(null); }
   }
 
   // ── Login ──────────────────────────────────────────────────
@@ -238,33 +348,29 @@ export default function AdminPage() {
       </div>
       <form
         onSubmit={async e => {
-          e.preventDefault();
-          setAuthError('');
-          setLoginLoading(true);
+          e.preventDefault(); setAuthError(''); setLoginLoading(true);
           try {
             const res = await fetch('/api/admin/auth', { headers: { 'x-admin-password': password } });
-            if (res.ok) { setAuthed(true); }
-            else { setAuthError(tr.admin.wrongPassword); }
+            if (res.ok) setAuthed(true);
+            else setAuthError(tr.admin.wrongPassword);
           } catch { setAuthError(tr.admin.wrongPassword); }
           finally { setLoginLoading(false); }
         }}
         className="glass rounded-2xl p-6 space-y-4"
       >
         <div>
-          <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
-            {tr.admin.passwordLabel}
-          </label>
+          <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.passwordLabel}</label>
           <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required autoFocus />
         </div>
-        {authError && (
-          <p className="text-sm rounded-xl px-3 py-2" style={{ color: '#f87171', background: 'rgba(239,68,68,0.1)' }}>{authError}</p>
-        )}
+        {authError && <p className="text-sm rounded-xl px-3 py-2" style={{ color: '#f87171', background: 'rgba(239,68,68,0.1)' }}>{authError}</p>}
         <button type="submit" disabled={loginLoading} className="btn-primary w-full rounded-xl py-3 text-white font-bold text-sm disabled:opacity-60">
           {loginLoading ? '⏳ Verifica...' : tr.admin.loginBtn}
         </button>
       </form>
     </div>
   );
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
   // ── Dashboard ──────────────────────────────────────────────
   return (
@@ -274,24 +380,22 @@ export default function AdminPage() {
           <h1 className="text-2xl font-black" style={{ color: 'var(--text-primary)' }}>{tr.admin.title}</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>{tr.admin.subtitle}</p>
         </div>
-        <button onClick={() => setAuthed(false)} className="text-sm transition-colors" style={{ color: 'var(--text-muted)' }}>
-          {tr.admin.logout}
-        </button>
+        <button onClick={() => setAuthed(false)} className="text-sm" style={{ color: 'var(--text-muted)' }}>{tr.admin.logout}</button>
       </div>
 
-      {/* Create / Edit form */}
+      {/* ── Create / Edit form ─────────────────────────────── */}
       <div ref={formRef} className="glass rounded-2xl p-6 space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
             {editingId ? tr.admin.editTitle : tr.admin.createTitle}
           </h2>
-          {/* Simple / Multi toggle */}
           <div className="flex rounded-xl overflow-hidden glass">
             {[{ val: false, label: tr.admin.simpleMode }, { val: true, label: tr.admin.multiMode }].map(({ val, label }) => (
               <button key={String(val)} onClick={() => setIsMulti(val)}
                 className={`px-3 py-1.5 text-xs font-semibold transition-all ${isMulti === val
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white'
-                  : 'text-secondary hover:opacity-80'}`}
+                  : 'opacity-60 hover:opacity-80'}`}
+                style={!(isMulti === val) ? { color: 'var(--text-secondary)' } : {}}
               >{label}</button>
             ))}
           </div>
@@ -304,6 +408,29 @@ export default function AdminPage() {
               <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                 placeholder={tr.admin.titlePlaceholder} required maxLength={80} />
             </div>
+
+            {/* Slug field */}
+            <div className="sm:col-span-2">
+              <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
+                🔗 {lang === 'it' ? 'URL personalizzato (slug)' : 'Custom URL (slug)'}
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>/e/</span>
+                <input
+                  value={form.slug}
+                  onChange={e => setForm(f => ({ ...f, slug: slugify(e.target.value) }))}
+                  placeholder={lang === 'it' ? 'cena-da-marco' : 'group-dinner'}
+                  maxLength={60}
+                  className="flex-1"
+                />
+                {form.slug && (
+                  <span className="text-xs shrink-0 font-mono truncate max-w-[140px]" style={{ color: 'var(--text-muted)' }}>
+                    {origin}/e/{form.slug}
+                  </span>
+                )}
+              </div>
+            </div>
+
             {!isMulti && (
               <div>
                 <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.typeLabel}</label>
@@ -315,11 +442,7 @@ export default function AdminPage() {
             {!isMulti && (
               <div>
                 <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.locationLabel}</label>
-                <LocationAutocomplete
-                  value={form.location}
-                  onChange={v => setForm(f => ({ ...f, location: v }))}
-                  placeholder={tr.admin.locationPlaceholder}
-                />
+                <LocationAutocomplete value={form.location} onChange={v => setForm(f => ({ ...f, location: v }))} placeholder={tr.admin.locationPlaceholder} />
               </div>
             )}
             <div>
@@ -344,18 +467,10 @@ export default function AdminPage() {
                 placeholder={tr.admin.descPlaceholder} rows={2} maxLength={400} style={{ resize: 'vertical' }} />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>
-                ⏰ {tr.admin.deadlineLabel}
-              </label>
-              <input
-                type="datetime-local"
-                value={form.rsvp_deadline}
-                onChange={e => setForm(f => ({ ...f, rsvp_deadline: e.target.value }))}
-              />
+              <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>⏰ {tr.admin.deadlineLabel}</label>
+              <input type="datetime-local" value={form.rsvp_deadline} onChange={e => setForm(f => ({ ...f, rsvp_deadline: e.target.value }))} />
               <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                {lang === 'it'
-                  ? 'Dopo questa data/ora il form di risposta sarà bloccato.'
-                  : 'After this date/time the response form will be locked.'}
+                {lang === 'it' ? 'Dopo questa data/ora il form di risposta sarà bloccato.' : 'After this date/time the response form will be locked.'}
               </p>
             </div>
           </div>
@@ -400,11 +515,7 @@ export default function AdminPage() {
                     </div>
                     <div className="sm:col-span-2">
                       <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.locationLabel}</label>
-                      <LocationAutocomplete
-                        value={part.location}
-                        onChange={v => updatePart(i, 'location', v)}
-                        placeholder={tr.admin.locationPlaceholder}
-                      />
+                      <LocationAutocomplete value={part.location} onChange={v => updatePart(i, 'location', v)} placeholder={tr.admin.locationPlaceholder} />
                     </div>
                     <div className="sm:col-span-2">
                       <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.descLabel}</label>
@@ -416,7 +527,6 @@ export default function AdminPage() {
               ))}
               <button type="button" onClick={() => setParts(ps => {
                 const prev = ps[ps.length - 1];
-                // Default start = previous stage's end time (or its start if no end set)
                 const defaultTime = prev?.end_time || prev?.time || '19:00';
                 return [...ps, { ...emptyPart(), time: defaultTime }];
               })}
@@ -433,22 +543,18 @@ export default function AdminPage() {
           <div className="flex items-center gap-3 flex-wrap">
             <button type="submit" disabled={creating}
               className="btn-primary rounded-xl px-6 py-3 text-white font-bold text-sm disabled:opacity-50">
-              {creating
-                ? (editingId ? tr.admin.editing : tr.admin.creating)
-                : (editingId ? tr.admin.editBtn  : tr.admin.createBtn)}
+              {creating ? (editingId ? tr.admin.editing : tr.admin.creating) : (editingId ? tr.admin.editBtn : tr.admin.createBtn)}
             </button>
             {editingId && (
               <button type="button" onClick={cancelEdit}
-                className="glass-strong rounded-xl px-4 py-3 text-sm font-semibold transition-all hover:opacity-80"
-                style={{ color: 'var(--text-secondary)' }}>
-                {tr.admin.cancelEdit}
-              </button>
+                className="glass-strong rounded-xl px-4 py-3 text-sm font-semibold hover:opacity-80"
+                style={{ color: 'var(--text-secondary)' }}>{tr.admin.cancelEdit}</button>
             )}
           </div>
         </form>
       </div>
 
-      {/* Events list */}
+      {/* ── Events list ────────────────────────────────────── */}
       <div className="space-y-3">
         <h2 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
           {tr.admin.allEvents} ({events.length})
@@ -460,62 +566,218 @@ export default function AdminPage() {
         ) : (
           <div className="space-y-2">
             {events.map(event => {
-              const gradient = TYPE_COLOR[event.type] ?? 'from-blue-600 to-indigo-700';
-              const partsCount = (event as Event & { parts_count?: number }).parts_count ?? 0;
+              const gradient   = TYPE_COLOR[event.type] ?? 'from-blue-600 to-indigo-700';
+              const partsCount = event.parts_count ?? 0;
               const dateFormatted = new Date(event.date + 'T00:00:00').toLocaleDateString(
                 lang === 'it' ? 'it-IT' : 'en-GB',
                 { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }
               );
+              const yesC   = event.yes_count   ?? 0;
+              const maybeC = event.maybe_count ?? 0;
+              const noC    = event.no_count    ?? 0;
               return (
                 <div key={event.id}
                   className="glass rounded-2xl overflow-hidden transition-all"
                   style={editingId === event.id ? { boxShadow: '0 0 0 2px #60a5fa' } : {}}
                 >
                   <div className="flex">
-                  <div className={`bg-gradient-to-b ${gradient} w-1.5 shrink-0`} />
-                  <div className="flex-1 px-5 py-4 flex items-center justify-between gap-4 min-w-0">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{event.title}</p>
-                        {partsCount > 0 && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-white/10" style={{ color: 'var(--text-muted)' }}>
-                            🎭 {partsCount} tappe
-                          </span>
+                    <div className={`bg-gradient-to-b ${gradient} w-1.5 shrink-0`} />
+                    <div className="flex-1 px-4 py-3 flex items-center justify-between gap-3 min-w-0">
+                      {/* Left: info + donut */}
+                      <div className="flex items-center gap-3 min-w-0">
+                        {partsCount === 0 && (
+                          <AttendanceDonut yes={yesC} maybe={maybeC} no={noC} size={52} />
                         )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-semibold truncate text-sm" style={{ color: 'var(--text-primary)' }}>{event.title}</p>
+                            {partsCount > 0 && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 shrink-0" style={{ color: 'var(--text-muted)' }}>
+                                🎭 {partsCount}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
+                            {dateFormatted}{partsCount === 0 ? ` · ${event.time}` : ''}
+                            {event.slug && <span className="ml-1 font-mono opacity-60"> /e/{event.slug}</span>}
+                          </p>
+                          {partsCount === 0 && (
+                            <div className="flex gap-2 mt-1">
+                              <span className="text-xs text-emerald-400 font-semibold">✅ {yesC}</span>
+                              <span className="text-xs text-amber-400">🤔 {maybeC}</span>
+                              <span className="text-xs text-rose-400">❌ {noC}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
-                        {dateFormatted}{partsCount === 0 ? ` · ${event.time}` : ''}{(partsCount === 0 && event.location) ? ` · ${event.location}` : ''}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-                      <a href={`/event/${event.id}`} target="_blank" rel="noopener noreferrer"
-                        className="p-2 text-lg opacity-50 hover:opacity-100 transition-opacity rounded-lg" title="Apri">🔗</a>
-                      <button
-                        onClick={() => handleEdit(event)}
-                        className={`p-2 text-lg rounded-lg transition-opacity ${editingId === event.id ? 'opacity-100' : 'opacity-50 hover:opacity-100'}`}
-                        title="Modifica">✏️
-                      </button>
-                      <button
-                        onClick={() => handleExportCsv(event.id, event.title)}
-                        disabled={exportingId === event.id}
-                        className="p-2 text-base glass-strong rounded-lg font-semibold transition-all hover:opacity-80 disabled:opacity-30 min-w-[36px]"
-                        style={{ color: 'var(--text-secondary)' }}
-                        title={tr.admin.exportCsv}
-                      >
-                        {exportingId === event.id ? '⏳' : '📊'}
-                      </button>
-                      <button onClick={() => handleDelete(event.id, event.title)} disabled={deleteId === event.id}
-                        className="p-2 text-lg opacity-50 hover:opacity-100 transition-opacity disabled:opacity-30 rounded-lg" title="Elimina">
-                        {deleteId === event.id ? '⏳' : '🗑️'}
-                      </button>
+                      {/* Right: actions */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <a href={event.slug ? `/e/${event.slug}` : `/event/${event.id}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="p-2 text-base opacity-50 hover:opacity-100 transition-opacity rounded-lg" title="Apri">🔗</a>
+                        <button onClick={() => handleEdit(event)}
+                          className={`p-2 text-base rounded-lg transition-opacity ${editingId === event.id ? 'opacity-100' : 'opacity-50 hover:opacity-100'}`}
+                          title="Modifica">✏️</button>
+                        <button
+                          onClick={() => setNotifyEventId(n => n === event.id ? null : event.id)}
+                          className={`p-2 text-base rounded-lg transition-opacity ${notifyEventId === event.id ? 'opacity-100' : 'opacity-50 hover:opacity-100'}`}
+                          title={lang === 'it' ? 'Notifica push' : 'Push notify'}>🔔</button>
+                        <button onClick={() => handleExportCsv(event.id, event.title)} disabled={exportingId === event.id}
+                          className="p-2 text-base glass-strong rounded-lg transition-all hover:opacity-80 disabled:opacity-30"
+                          style={{ color: 'var(--text-secondary)' }} title={tr.admin.exportCsv}>
+                          {exportingId === event.id ? '⏳' : '📊'}
+                        </button>
+                        <button onClick={() => handleDelete(event.id, event.title)} disabled={deleteId === event.id}
+                          className="p-2 text-base opacity-50 hover:opacity-100 transition-opacity disabled:opacity-30 rounded-lg" title="Elimina">
+                          {deleteId === event.id ? '⏳' : '🗑️'}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  </div>{/* end flex row */}
+                  {notifyEventId === event.id && (
+                    <NotifyPanel eventId={event.id} password={password} lang={lang} onClose={() => setNotifyEventId(null)} />
+                  )}
                   <EventMapSection event={event} partsCount={partsCount} />
                 </div>
               );
             })}
           </div>
+        )}
+      </div>
+
+      {/* ── Polls section ──────────────────────────────────── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
+            🗳️ {lang === 'it' ? `Sondaggi data (${polls.length})` : `Date polls (${polls.length})`}
+          </h2>
+          <button
+            onClick={() => setShowPollForm(v => !v)}
+            className="btn-primary rounded-xl px-4 py-2 text-white text-sm font-semibold"
+          >
+            {showPollForm ? '✕' : '+ ' + (lang === 'it' ? 'Nuovo sondaggio' : 'New poll')}
+          </button>
+        </div>
+
+        {/* Create poll form */}
+        {showPollForm && (
+          <form onSubmit={handleCreatePoll} className="glass rounded-2xl p-5 space-y-4 animate-fadeInUp">
+            <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+              {lang === 'it' ? '➕ Crea sondaggio data' : '➕ Create date poll'}
+            </h3>
+            <input
+              value={pollForm.title}
+              onChange={e => setPollForm(f => ({ ...f, title: e.target.value }))}
+              placeholder={lang === 'it' ? 'Titolo sondaggio *' : 'Poll title *'}
+              required maxLength={80}
+            />
+            <input
+              value={pollForm.description}
+              onChange={e => setPollForm(f => ({ ...f, description: e.target.value }))}
+              placeholder={lang === 'it' ? 'Descrizione (opzionale)' : 'Description (optional)'}
+              maxLength={200}
+            />
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                {lang === 'it' ? 'Opzioni data (min 2)' : 'Date options (min 2)'}
+              </p>
+              {pollOptions.map((opt, i) => (
+                <div key={i} className="glass-strong rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>
+                      {lang === 'it' ? `Opzione ${i + 1}` : `Option ${i + 1}`}
+                    </span>
+                    {pollOptions.length > 2 && (
+                      <button type="button" onClick={() => setPollOptions(o => o.filter((_, idx) => idx !== i))}
+                        className="text-xs text-rose-400">✕</button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input
+                      type="date"
+                      value={opt.date}
+                      onChange={e => setPollOptions(o => o.map((x, idx) => idx === i ? { ...x, date: e.target.value } : x))}
+                      required
+                    />
+                    <input
+                      type="time"
+                      value={opt.time}
+                      onChange={e => setPollOptions(o => o.map((x, idx) => idx === i ? { ...x, time: e.target.value } : x))}
+                    />
+                    <input
+                      value={opt.label}
+                      onChange={e => setPollOptions(o => o.map((x, idx) => idx === i ? { ...x, label: e.target.value } : x))}
+                      placeholder={lang === 'it' ? 'Etichetta (opz.)' : 'Label (opt.)'}
+                      maxLength={60}
+                    />
+                  </div>
+                </div>
+              ))}
+              {pollOptions.length < 5 && (
+                <button type="button"
+                  onClick={() => setPollOptions(o => [...o, { label: '', date: '', time: '19:00' }])}
+                  className="glass-strong w-full rounded-xl py-2 text-sm font-semibold hover:opacity-80"
+                  style={{ color: 'var(--text-secondary)' }}>
+                  + {lang === 'it' ? 'Aggiungi opzione' : 'Add option'}
+                </button>
+              )}
+            </div>
+            {pollError && <p className="text-sm" style={{ color: '#f87171' }}>{pollError}</p>}
+            <button type="submit" disabled={creatingPoll}
+              className="btn-primary rounded-xl px-6 py-3 text-white font-bold text-sm disabled:opacity-50">
+              {creatingPoll ? '⏳' : (lang === 'it' ? '✨ Crea sondaggio' : '✨ Create poll')}
+            </button>
+          </form>
+        )}
+
+        {/* Polls list */}
+        {polls.length > 0 ? (
+          <div className="space-y-2">
+            {polls.map(poll => (
+              <div key={poll.id} className="glass rounded-2xl overflow-hidden">
+                <div className="px-5 py-4 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{poll.title}</p>
+                      {poll.closed && (
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(244,63,94,0.15)', color: '#f87171' }}>
+                          🔒 {lang === 'it' ? 'chiuso' : 'closed'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs mt-0.5 font-mono" style={{ color: 'var(--text-muted)' }}>
+                      {origin}/poll/{poll.id}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <a href={`/poll/${poll.id}`} target="_blank" rel="noopener noreferrer"
+                      className="p-2 text-base opacity-50 hover:opacity-100 rounded-lg" title="Apri">🔗</a>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${origin}/poll/${poll.id}`).catch(() => {});
+                      }}
+                      className="p-2 text-base opacity-50 hover:opacity-100 rounded-lg" title={lang === 'it' ? 'Copia link' : 'Copy link'}>📋</button>
+                    {!poll.closed && (
+                      <button onClick={() => handleClosePoll(poll.id)} disabled={closingPollId === poll.id}
+                        className="p-2 text-base opacity-50 hover:opacity-100 rounded-lg" title={lang === 'it' ? 'Chiudi sondaggio' : 'Close poll'}>
+                        {closingPollId === poll.id ? '⏳' : '🔒'}
+                      </button>
+                    )}
+                    <button onClick={() => handleDeletePoll(poll.id)} disabled={deletingPollId === poll.id}
+                      className="p-2 text-base opacity-50 hover:opacity-100 rounded-lg">
+                      {deletingPollId === poll.id ? '⏳' : '🗑️'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          !showPollForm && (
+            <div className="glass rounded-2xl p-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+              {lang === 'it' ? 'Nessun sondaggio ancora. Creane uno!' : 'No polls yet. Create one!'}
+            </div>
+          )
         )}
       </div>
     </div>

@@ -25,7 +25,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const body = await req.json();
-    const { title, description, type, location, date, time, max_participants, rsvp_deadline, parts } = body;
+    const { title, description, type, location, date, time, max_participants, rsvp_deadline, parts, slug } = body;
 
     const isMulti  = Array.isArray(parts) && parts.length > 0;
     const eventTime = isMulti ? (parts[0]?.time ?? '') : time;
@@ -47,6 +47,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         rsvp_deadline: rsvp_deadline ?? null,
       },
       Array.isArray(parts) ? parts : [],
+      slug || undefined,
     );
 
     return NextResponse.json(updated);
