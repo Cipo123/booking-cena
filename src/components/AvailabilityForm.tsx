@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { useLang, useToast } from '@/context/providers';
 import type { EventPart } from '@/lib/db';
@@ -23,6 +23,14 @@ export default function AvailabilityForm({ eventId, parts = [], rsvpDeadline, on
   const [name, setName]   = useState('');
   const [email, setEmail] = useState('');
   const [note, setNote]   = useState('');
+
+  // Precompila nome ed email da localStorage al mount
+  useEffect(() => {
+    const savedName  = localStorage.getItem('bookingcena_username');
+    const savedEmail = localStorage.getItem('bookingcena_email');
+    if (savedName)  setName(savedName);
+    if (savedEmail) setEmail(savedEmail);
+  }, []);
 
   // For multi-part events: {partId: status}
   const [partSelections, setPartSelections] = useState<Record<string, Status>>({});
@@ -127,14 +135,24 @@ export default function AvailabilityForm({ eventId, parts = [], rsvpDeadline, on
           <label className="block text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>
             {tr.event.nameLabel}
           </label>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder={tr.event.namePlaceholder} maxLength={60} />
+          <input
+            value={name}
+            onChange={e => { setName(e.target.value); localStorage.setItem('bookingcena_username', e.target.value); }}
+            placeholder={tr.event.namePlaceholder}
+            maxLength={60}
+          />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>
               {tr.event.emailLabel}
             </label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nome@esempio.it" />
+            <input
+              type="email"
+              value={email}
+              onChange={e => { setEmail(e.target.value); localStorage.setItem('bookingcena_email', e.target.value); }}
+              placeholder="nome@esempio.it"
+            />
           </div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>
