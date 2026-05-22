@@ -147,7 +147,22 @@ async function generateUniqueSlug(base: string): Promise<string> {
 
 /* ── Events ──────────────────────────────────────────────── */
 export const eventsDb = {
-  async getAll(): Promise<Event[]> {
+  async getAll(opts?: { publicOnly?: boolean }): Promise<Event[]> {
+    if (opts?.publicOnly) {
+      return sql<Event[]>`
+        SELECT e.*,
+          COUNT(DISTINCT ep.id)::int AS parts_count,
+          COUNT(DISTINCT CASE WHEN a.status = 'yes'   AND a.part_id IS NULL THEN a.id END)::int AS yes_count,
+          COUNT(DISTINCT CASE WHEN a.status = 'maybe' AND a.part_id IS NULL THEN a.id END)::int AS maybe_count,
+          COUNT(DISTINCT CASE WHEN a.status = 'no'    AND a.part_id IS NULL THEN a.id END)::int AS no_count
+        FROM events e
+        LEFT JOIN event_parts  ep ON ep.event_id = e.id
+        LEFT JOIN availabilities a ON a.event_id = e.id
+        WHERE e.group_id IS NULL
+        GROUP BY e.id
+        ORDER BY e.date ASC, e.time ASC
+      `;
+    }
     return sql<Event[]>`
       SELECT e.*,
         COUNT(DISTINCT ep.id)::int AS parts_count,

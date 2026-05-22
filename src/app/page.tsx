@@ -1,9 +1,62 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useLang } from '@/context/providers';
 import EventCard from '@/components/EventCard';
 import type { Event } from '@/lib/db';
+
+function GroupAccessWidget() {
+  const router = useRouter();
+  const [slug, setSlug] = useState('');
+  const [open, setOpen] = useState(false);
+
+  function go(e: React.FormEvent) {
+    e.preventDefault();
+    const s = slug.trim().toLowerCase().replace(/\s+/g, '-');
+    if (s) router.push(`/g/${s}`);
+  }
+
+  return (
+    <div className="glass rounded-2xl overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/5 transition-colors"
+      >
+        <span className="flex items-center gap-2 font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+          🔐 Accedi a un gruppo
+        </span>
+        <span style={{ color: 'var(--text-muted)' }}>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <form onSubmit={go} className="px-5 pb-5 space-y-3 animate-fadeIn">
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Inserisci il nome del gruppo (slug) che ti ha condiviso l'organizzatore, poi entra con il codice segreto.
+          </p>
+          <div className="flex gap-2">
+            <div className="flex items-center gap-1.5 flex-1 glass-strong rounded-xl px-3">
+              <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>/g/</span>
+              <input
+                value={slug}
+                onChange={e => setSlug(e.target.value)}
+                placeholder="nome-del-gruppo"
+                maxLength={60}
+                className="flex-1 bg-transparent border-0 outline-none py-2 text-sm"
+                style={{ color: 'var(--text-primary)' }}
+              />
+            </div>
+            <button
+              type="submit"
+              className="btn-primary rounded-xl px-4 py-2 text-white font-semibold text-sm shrink-0"
+            >
+              Entra →
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
 
 export default function HomePage() {
   const { tr } = useLang();
@@ -39,6 +92,9 @@ export default function HomePage() {
           {tr.home.subtitle}
         </p>
       </div>
+
+      {/* Group access widget */}
+      <GroupAccessWidget />
 
       {loading ? (
         <div className="grid gap-5 md:grid-cols-2">

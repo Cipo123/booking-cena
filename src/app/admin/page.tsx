@@ -188,12 +188,12 @@ export default function AdminPage() {
   const loadEvents = useCallback(async () => {
     setLoadingEvents(true);
     try {
-      const res = await fetch('/api/events');
+      const res = await fetch('/api/events', { headers: { 'x-admin-password': password } });
       if (!res.ok) { setEvents([]); return; }
       const data = await res.json();
       setEvents(Array.isArray(data) ? data : []);
     } catch { setEvents([]); } finally { setLoadingEvents(false); }
-  }, []);
+  }, [password]);
 
   const loadPolls = useCallback(async () => {
     try {

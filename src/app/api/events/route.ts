@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { eventsDb } from '@/lib/db';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const events = await eventsDb.getAll();
+    const adminPassword = process.env.ADMIN_PASSWORD ?? 'admin123';
+    const isAdmin = req.headers.get('x-admin-password') === adminPassword;
+    // Senza autenticazione admin, nascondi gli eventi che appartengono a un gruppo
+    const events = await eventsDb.getAll(isAdmin ? undefined : { publicOnly: true });
     return NextResponse.json(events);
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: 'Errore server' }, { status: 500 });
   }
 }
