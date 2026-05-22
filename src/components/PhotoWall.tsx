@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EventPhoto } from '@/lib/db';
 
 interface Props {
@@ -8,14 +8,41 @@ interface Props {
   lang: string;
 }
 
+async function downloadBlob(url: string, filename: string) {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  } catch {
+    // fallback: open in new tab
+    window.open(url, '_blank');
+  }
+}
+
+function photoFilename(photo: EventPhoto, idx: number) {
+  const ext = photo.url.split('.').pop()?.split('?')[0] ?? 'jpg';
+  const safe = photo.uploader_name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  return `foto_${String(idx + 1).padStart(2, '0')}_${safe}.${ext}`;
+}
+
 export default function PhotoWall({ eventId, lang }: Props) {
-  const [photos, setPhotos] = useState<EventPhoto[]>([]);
-  const [lightbox, setLightbox] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [photos, setPhotos]           = useState<EventPhoto[]>([]);
+  const [lightboxIdx, setLightboxIdx] = useState<number>(-1);
+  const [uploading, setUploading]     = useState(false);
   const [uploaderName, setUploaderName] = useState('');
-  const [error, setError] = useState('');
-  const [noStorage, setNoStorage] = useState(false);
+  const [error, setError]             = useState('');
+  const [noStorage, setNoStorage]     = useState(false);
+  const [dlAll, setDlAll]             = useState(false);
+  const [zoomed, setZoomed]           = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const thumbsRef = useRef<HTMLDivElement>(null);
 
   const fetchPhotos = () =>
     fetch(`/api/events/${eventId}/photos`)
@@ -23,6 +50,60 @@ export default function PhotoWall({ eventId, lang }: Props) {
       .then(d => Array.isArray(d) && setPhotos(d));
 
   useEffect(() => { fetchPhotos(); }, [eventId]);
+
+  const currentPhoto = lightboxIdx >= 0 ? photos[lightboxIdx] : null;
+  const hasPrev = lightboxIdx > 0;
+  const hasNext = lightboxIdx < photos.length - 1;
+
+  const openLightbox = useCallback((idx: number) => {
+    setLightboxIdx(idx);
+    setZoomed(false);
+  }, []);
+
+  const closeLightbox = useCallback(() => {
+    setLightboxIdx(-1);
+    setZoomed(false);
+  }, []);
+
+  const goPrev = useCallback(() => {
+    setLightboxIdx(i => { if (i > 0) { setZoomed(false); return i - 1; } return i; });
+  }, []);
+
+  const goNext = useCallback(() => {
+    setLightboxIdx(i => {
+      if (i < photos.length - 1) { setZoomed(false); return i + 1; }
+      return i;
+    });
+  }, [photos.length]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (lightboxIdx < 0) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape')      closeLightbox();
+      if (e.key === 'ArrowLeft')   goPrev();
+      if (e.key === 'ArrowRight')  goNext();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [lightboxIdx, closeLightbox, goPrev, goNext]);
+
+  // Scroll active thumbnail into view
+  useEffect(() => {
+    if (lightboxIdx < 0 || !thumbsRef.current) return;
+    const el = thumbsRef.current.children[lightboxIdx] as HTMLElement | undefined;
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [lightboxIdx]);
+
+  async function handleDownloadAll() {
+    if (dlAll) return;
+    setDlAll(true);
+    for (let i = 0; i < photos.length; i++) {
+      await downloadBlob(photos[i].url, photoFilename(photos[i], i));
+      if (i < photos.length - 1) await new Promise(r => setTimeout(r, 400));
+    }
+    setDlAll(false);
+  }
 
   async function handleUpload(file: File) {
     if (!uploaderName.trim()) {
@@ -60,8 +141,8 @@ export default function PhotoWall({ eventId, lang }: Props) {
         </p>
         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
           {lang === 'it'
-            ? 'Aggiungi BLOB_READ_WRITE_TOKEN per abilitare i caricamenti foto.'
-            : 'Add BLOB_READ_WRITE_TOKEN to enable photo uploads.'}
+            ? 'Aggiungi SUPABASE_URL e SUPABASE_SERVICE_KEY nelle variabili d\'ambiente.'
+            : 'Add SUPABASE_URL and SUPABASE_SERVICE_KEY to your environment variables.'}
         </p>
       </div>
     );
@@ -69,18 +150,34 @@ export default function PhotoWall({ eventId, lang }: Props) {
 
   return (
     <div className="glass rounded-2xl p-5 space-y-4">
-      <h3 className="font-semibold flex items-center gap-2 text-sm" style={{ color: 'var(--text-primary)' }}>
-        <span>📸</span>
-        {lang === 'it' ? `Galleria foto (${photos.length})` : `Photo gallery (${photos.length})`}
-      </h3>
+
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-semibold flex items-center gap-2 text-sm" style={{ color: 'var(--text-primary)' }}>
+          <span>📸</span>
+          {lang === 'it' ? `Galleria foto (${photos.length})` : `Photo gallery (${photos.length})`}
+        </h3>
+        {photos.length > 0 && (
+          <button
+            onClick={handleDownloadAll}
+            disabled={dlAll}
+            className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl btn-primary text-white disabled:opacity-50 transition-opacity"
+          >
+            {dlAll
+              ? <><span className="animate-spin inline-block">⏳</span> {lang === 'it' ? 'Scaricando…' : 'Downloading…'}</>
+              : <><span>⬇️</span> {lang === 'it' ? 'Scarica tutte' : 'Download all'}</>
+            }
+          </button>
+        )}
+      </div>
 
       {/* Photo grid */}
       {photos.length > 0 && (
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-          {photos.map(p => (
+          {photos.map((p, idx) => (
             <button
               key={p.id}
-              onClick={() => setLightbox(p.url)}
+              onClick={() => openLightbox(idx)}
               className="relative aspect-square rounded-xl overflow-hidden group"
               style={{ background: 'var(--card-bg)' }}
             >
@@ -90,8 +187,8 @@ export default function PhotoWall({ eventId, lang }: Props) {
                 alt={p.uploader_name}
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
               />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-end p-1.5">
-                <span className="text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity truncate">
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 flex items-end p-1.5">
+                <span className="text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity truncate drop-shadow">
                   {p.uploader_name}
                 </span>
               </div>
@@ -131,35 +228,125 @@ export default function PhotoWall({ eventId, lang }: Props) {
           type="file"
           accept="image/*"
           className="hidden"
-          onChange={e => {
-            const file = e.target.files?.[0];
-            if (file) handleUpload(file);
-          }}
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); }}
         />
         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          {lang === 'it' ? 'Max 8 MB · JPEG, PNG, WebP, GIF' : 'Max 8 MB · JPEG, PNG, WebP, GIF'}
+          Max 8 MB · JPEG, PNG, WebP, GIF
         </p>
       </div>
 
-      {/* Lightbox */}
-      {lightbox && (
+      {/* ── LIGHTBOX ─────────────────────────────────────────── */}
+      {currentPhoto && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 animate-fadeIn"
-          onClick={() => setLightbox(null)}
+          className="fixed inset-0 z-50 flex flex-col bg-black/95"
+          style={{ animation: 'fadeIn .15s ease' }}
+          onClick={closeLightbox}
         >
-          <button
-            className="absolute top-4 right-4 text-white text-3xl font-bold hover:opacity-70"
-            onClick={() => setLightbox(null)}
-          >
-            ✕
-          </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={lightbox}
-            alt="foto"
-            className="max-w-[90vw] max-h-[85vh] rounded-2xl shadow-2xl object-contain"
+          {/* TOP BAR */}
+          <div
+            className="shrink-0 flex items-center justify-between px-4 py-3 bg-black/40 backdrop-blur-sm"
             onClick={e => e.stopPropagation()}
-          />
+          >
+            {/* left: counter + info */}
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="text-white/60 text-xs font-mono shrink-0">
+                {lightboxIdx + 1} / {photos.length}
+              </span>
+              <div className="min-w-0">
+                <p className="text-white text-sm font-semibold truncate">
+                  {currentPhoto.uploader_name}
+                </p>
+                <p className="text-white/40 text-xs">
+                  {new Date(currentPhoto.created_at).toLocaleString(
+                    lang === 'it' ? 'it-IT' : 'en-US',
+                    { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* right: download + close */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => downloadBlob(currentPhoto.url, photoFilename(currentPhoto, lightboxIdx))}
+                className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 active:bg-white/30 text-white text-xs font-semibold px-3 py-2 rounded-xl transition-colors"
+              >
+                ⬇️ {lang === 'it' ? 'Scarica' : 'Download'}
+              </button>
+              <button
+                onClick={closeLightbox}
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white text-lg transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* MAIN IMAGE */}
+          <div className="flex-1 flex items-center justify-center relative min-h-0 overflow-hidden px-14">
+            {/* Prev */}
+            {hasPrev && (
+              <button
+                onClick={e => { e.stopPropagation(); goPrev(); }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/25 active:bg-white/35 text-white text-2xl flex items-center justify-center transition-colors select-none"
+              >
+                ‹
+              </button>
+            )}
+
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              key={currentPhoto.id}
+              src={currentPhoto.url}
+              alt={currentPhoto.uploader_name}
+              onClick={e => { e.stopPropagation(); setZoomed(z => !z); }}
+              className={`rounded-xl shadow-2xl transition-all duration-200 select-none ${
+                zoomed
+                  ? 'max-w-full max-h-full cursor-zoom-out object-contain'
+                  : 'max-w-[calc(100vw-7rem)] max-h-full cursor-zoom-in object-contain'
+              }`}
+            />
+
+            {/* Next */}
+            {hasNext && (
+              <button
+                onClick={e => { e.stopPropagation(); goNext(); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/25 active:bg-white/35 text-white text-2xl flex items-center justify-center transition-colors select-none"
+              >
+                ›
+              </button>
+            )}
+          </div>
+
+          {/* THUMBNAIL STRIP */}
+          <div
+            ref={thumbsRef}
+            className="shrink-0 flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide"
+            onClick={e => e.stopPropagation()}
+            style={{ scrollbarWidth: 'none' }}
+          >
+            {photos.map((p, idx) => (
+              <button
+                key={p.id}
+                onClick={() => openLightbox(idx)}
+                className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all duration-150 ${
+                  idx === lightboxIdx
+                    ? 'border-white scale-105 opacity-100'
+                    : 'border-transparent opacity-40 hover:opacity-75'
+                }`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.url} alt={p.uploader_name} className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+
+          {/* Hint */}
+          <p className="shrink-0 text-center text-white/25 text-xs pb-2 select-none">
+            {lang === 'it'
+              ? '← → naviga · ESC chiudi · click sull\'immagine per zoom'
+              : '← → navigate · ESC close · click image to zoom'}
+          </p>
         </div>
       )}
     </div>
