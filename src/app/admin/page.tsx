@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useLang } from '@/context/providers';
+import LocationAutocomplete from '@/components/LocationAutocomplete';
 import type { Event } from '@/lib/db';
 
 const EVENT_TYPES_IT = [
@@ -184,8 +185,11 @@ export default function AdminPage() {
             {!isMulti && (
               <div>
                 <label className="block text-xs uppercase tracking-wide font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.locationLabel}</label>
-                <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-                  placeholder={tr.admin.locationPlaceholder} maxLength={100} />
+                <LocationAutocomplete
+                  value={form.location}
+                  onChange={v => setForm(f => ({ ...f, location: v }))}
+                  placeholder={tr.admin.locationPlaceholder}
+                />
               </div>
             )}
             <div>
@@ -266,7 +270,11 @@ export default function AdminPage() {
                     </div>
                     <div className="sm:col-span-2">
                       <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.locationLabel}</label>
-                      <input value={part.location} onChange={e => updatePart(i, 'location', e.target.value)} placeholder={tr.admin.locationPlaceholder} />
+                      <LocationAutocomplete
+                        value={part.location}
+                        onChange={v => updatePart(i, 'location', v)}
+                        placeholder={tr.admin.locationPlaceholder}
+                      />
                     </div>
                     <div className="sm:col-span-2">
                       <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>{tr.admin.descLabel}</label>
