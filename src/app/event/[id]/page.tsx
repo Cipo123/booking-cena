@@ -8,7 +8,7 @@ import AvailabilityForm from '@/components/AvailabilityForm';
 import MapWidget from '@/components/MapWidget';
 import MultiEventMap from '@/components/MultiEventMap';
 import CountdownTimer from '@/components/CountdownTimer';
-import ShareQrWidget from '@/components/ShareQrWidget';
+import QRCode from 'react-qr-code';
 import CommentsFeed from '@/components/CommentsFeed';
 import PhotoWall from '@/components/PhotoWall';
 import PushSubscribeBtn from '@/components/PushSubscribeBtn';
@@ -103,6 +103,19 @@ export default function EventPage() {
   const { tr, lang } = useLang();
   const [event, setEvent] = useState<EventWithAvailabilities | null>(null);
   const [loading, setLoading] = useState(true);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [calOpen, setCalOpen]     = useState(false);
+  const [copied, setCopied]       = useState(false);
+  const [showQr, setShowQr]       = useState(false);
+
+  async function handleShare(title: string, url: string) {
+    if (navigator.share) { await navigator.share({ title, url }).catch(() => {}); }
+    else { await navigator.clipboard.writeText(url).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 2500); }
+  }
+  async function handleCopy(url: string) {
+    await navigator.clipboard.writeText(url).catch(() => {});
+    setCopied(true); setTimeout(() => setCopied(false), 2500);
+  }
 
   const reload = () => {
     fetch(`/api/events/${id}`)
@@ -203,6 +216,90 @@ export default function EventPage() {
               <PushSubscribeBtn eventId={event.id} lang={lang} />
             </div>
           )}
+
+          {/* Share + Calendar inline dropdowns */}
+          <div className="flex flex-wrap gap-2 pt-2 border-t" style={{ borderColor: 'var(--card-border)' }}>
+            {/* Condividi */}
+            <div className="relative">
+              <button
+                onClick={() => { setShareOpen(o => !o); setCalOpen(false); setShowQr(false); }}
+                className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                <span>📤</span> {tr.event.shareBtn}
+              </button>
+              {shareOpen && (
+                <div className="absolute left-0 top-full mt-2 z-10 glass-strong rounded-xl py-1 min-w-[200px] shadow-xl">
+                  <button
+                    onClick={() => handleShare(event.title, shareUrl ?? window.location.href)}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-white/10 transition-colors text-left"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    <span>📤</span> {tr.event.share}
+                  </button>
+                  <button
+                    onClick={() => handleCopy(shareUrl ?? window.location.href)}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-white/10 transition-colors text-left"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    <span>{copied ? '✅' : '📋'}</span> {copied ? tr.event.copied : tr.event.copyLink}
+                  </button>
+                  <button
+                    onClick={() => setShowQr(q => !q)}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-white/10 transition-colors text-left"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    <span>📱</span> {showQr ? tr.event.hideQr : tr.event.showQr}
+                  </button>
+                  {showQr && shareUrl && (
+                    <div className="px-4 py-3 flex justify-center border-t" style={{ borderColor: 'var(--card-border)' }}>
+                      <QRCode value={shareUrl} size={140} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Calendario */}
+            <div className="relative">
+              <button
+                onClick={() => { setCalOpen(o => !o); setShareOpen(false); }}
+                className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                <span>📆</span> {tr.event.calendar}
+              </button>
+              {calOpen && (
+                <div className="absolute left-0 top-full mt-2 z-10 glass-strong rounded-xl py-1 min-w-[220px] shadow-xl">
+                  <a
+                    href={`/api/events/${event.id}/ics`}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-white/10 transition-colors"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    <span>📥</span> {tr.event.downloadIcs}
+                  </a>
+                  <a
+                    href={googleCalendarUrl(event)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-white/10 transition-colors"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    <span>📅</span> {tr.event.googleCal}
+                  </a>
+                  <a
+                    href={outlookCalendarUrl(event)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-white/10 transition-colors"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    <span>📧</span> {tr.event.outlookCal}
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -224,34 +321,6 @@ export default function EventPage() {
 
       {/* Map (single event location) */}
       {!isMulti && event.location && <MapWidget location={event.location} />}
-
-      {/* Share + QR (with slug URL when available) */}
-      <ShareQrWidget title={event.title} url={shareUrl} />
-
-      {/* Calendar export */}
-      <div className="glass rounded-2xl p-5 space-y-3">
-        <h3 className="font-semibold flex items-center gap-2 text-sm" style={{ color: 'var(--text-primary)' }}>
-          <span>📆</span> {tr.event.calendar}
-        </h3>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { href: `/api/events/${event.id}/ics`, label: tr.event.downloadIcs, icon: '📥' },
-            { href: googleCalendarUrl(event), label: tr.event.googleCal, icon: '📅', external: true },
-            { href: outlookCalendarUrl(event), label: tr.event.outlookCal, icon: '📧', external: true },
-          ].map(btn => (
-            <a
-              key={btn.label}
-              href={btn.href}
-              target={btn.external ? '_blank' : undefined}
-              rel={btn.external ? 'noopener noreferrer' : undefined}
-              className="flex items-center gap-2 glass-strong rounded-xl px-4 py-2 text-sm transition-all hover:scale-105"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              <span>{btn.icon}</span> {btn.label}
-            </a>
-          ))}
-        </div>
-      </div>
 
       {/* Global route map (multi-part only) */}
       {isMulti && (
