@@ -17,6 +17,10 @@ export const translations = {
       groupSub: "Inserisci il codice che ti ha condiviso l'organizzatore",
       groupCodePlaceholder: 'Codice di accesso…',
       groupEnter: 'Entra →',
+      groupSessionsTitle: 'I tuoi gruppi',
+      groupSessionsSub: 'Accesso diretto ai tuoi gruppi salvati',
+      groupReenter: 'Rientra →',
+      groupOtherCode: 'Usa un altro codice',
     },
     event: {
       back: '← Torna agli eventi',
@@ -166,6 +170,10 @@ export const translations = {
       groupSub: 'Enter the code shared by the organiser',
       groupCodePlaceholder: 'Access code…',
       groupEnter: 'Enter →',
+      groupSessionsTitle: 'Your groups',
+      groupSessionsSub: 'Quick access to your saved groups',
+      groupReenter: 'Enter →',
+      groupOtherCode: 'Use another code',
     },
     event: {
       back: '← Back to events',

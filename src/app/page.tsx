@@ -6,12 +6,53 @@ import { useLang } from '@/context/providers';
 import EventCard from '@/components/EventCard';
 import type { Event } from '@/lib/db';
 
+interface SavedSession {
+  slug: string;
+  name: string;
+  type: string;
+}
+
+const TYPE_EMOJI: Record<string, string> = {
+  corso: '🎓', progetto: '💼', compagnia: '👥', altro: '🏷️',
+};
+
 function GroupAccessWidget() {
   const router = useRouter();
   const { tr } = useLang();
+
+  // Sessioni salvate in localStorage
+  const [sessions, setSessions] = useState<SavedSession[]>([]);
+  const [showForm, setShowForm] = useState(false);
+
+  // Nuovo codice
   const [code, setCode]       = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
+
+  // Al mount legge le sessioni dal localStorage
+  useEffect(() => {
+    const found: SavedSession[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith('bookingcena_group_')) continue;
+      const slug = key.replace('bookingcena_group_', '');
+      try {
+        const raw = localStorage.getItem(key) ?? '';
+        const data = JSON.parse(raw);
+        if (data?.group?.name) {
+          found.push({ slug, name: data.group.name, type: data.group.type ?? 'altro' });
+        } else {
+          // Vecchio formato stringa — usa lo slug come nome
+          found.push({ slug, name: slug, type: 'altro' });
+        }
+      } catch {
+        found.push({ slug, name: slug, type: 'altro' });
+      }
+    }
+    setSessions(found);
+    // Se non ci sono sessioni salvate mostra subito il form
+    if (found.length === 0) setShowForm(true);
+  }, []);
 
   async function go(e: React.FormEvent) {
     e.preventDefault();
@@ -26,7 +67,6 @@ function GroupAccessWidget() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? tr.groups.invalidCode); return; }
-      // Salva codice + dati in localStorage → /g/[slug] si apre istantaneamente
       localStorage.setItem(`bookingcena_group_${data.slug}`, JSON.stringify({
         code: c,
         group: data.group,
@@ -40,6 +80,8 @@ function GroupAccessWidget() {
     }
   }
 
+  const hasSessions = sessions.length > 0;
+
   return (
     <div
       className="rounded-2xl overflow-hidden"
@@ -48,48 +90,91 @@ function GroupAccessWidget() {
         border: '1px solid rgba(99,102,241,0.35)',
       }}
     >
-      <div className="px-5 pt-5 pb-2 flex items-center gap-3">
+      {/* Header */}
+      <div className="px-5 pt-5 pb-3 flex items-center gap-3">
         <span className="text-3xl">🔐</span>
         <div>
           <p className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>
-            {tr.home.groupTitle}
+            {hasSessions ? tr.home.groupSessionsTitle : tr.home.groupTitle}
           </p>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            {tr.home.groupSub}
+            {hasSessions ? tr.home.groupSessionsSub : tr.home.groupSub}
           </p>
         </div>
       </div>
 
-      <form onSubmit={go} className="px-5 pb-5 pt-3 space-y-3">
-        <div className="flex gap-2">
-          <input
-            value={code}
-            onChange={e => { setCode(e.target.value); setError(''); }}
-            placeholder={tr.home.groupCodePlaceholder}
-            maxLength={80}
-            autoComplete="off"
-            className="flex-1 rounded-xl px-4 py-3 text-sm"
-            style={{
-              background: 'rgba(255,255,255,0.07)',
-              border: error ? '1px solid #f87171' : '1px solid rgba(255,255,255,0.12)',
-              color: 'var(--text-primary)',
-              outline: 'none',
-            }}
-          />
+      {/* Sessioni attive: bottoni diretti */}
+      {hasSessions && (
+        <div className="px-5 pb-4 space-y-2">
+          {sessions.map(s => (
+            <button
+              key={s.slug}
+              onClick={() => router.push(`/g/${s.slug}`)}
+              className="w-full flex items-center justify-between gap-3 glass-strong rounded-xl px-4 py-3 transition-all hover:scale-[1.01] active:scale-[0.99] text-left"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-lg shrink-0">{TYPE_EMOJI[s.type] ?? '🏷️'}</span>
+                <span className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+                  {s.name}
+                </span>
+              </div>
+              <span
+                className="text-sm shrink-0 font-bold"
+                style={{ color: '#60a5fa' }}
+              >
+                {tr.home.groupReenter}
+              </span>
+            </button>
+          ))}
+
+          {/* Toggle per usare un altro codice */}
           <button
-            type="submit"
-            disabled={loading || !code.trim()}
-            className="btn-primary rounded-xl px-5 py-3 text-white font-bold text-sm shrink-0 disabled:opacity-50 transition-opacity"
+            onClick={() => setShowForm(v => !v)}
+            className="text-xs mt-1 transition-opacity hover:opacity-80 flex items-center gap-1"
+            style={{ color: 'var(--text-muted)' }}
           >
-            {loading ? '⏳' : tr.home.groupEnter}
+            {showForm ? '▲' : '+'} {tr.home.groupOtherCode}
           </button>
         </div>
-        {error && (
-          <p className="text-xs rounded-xl px-3 py-2" style={{ color: '#f87171', background: 'rgba(239,68,68,0.1)' }}>
-            {error}
-          </p>
-        )}
-      </form>
+      )}
+
+      {/* Form per inserire un codice */}
+      {showForm && (
+        <form
+          onSubmit={go}
+          className="px-5 pb-5 space-y-3"
+          style={hasSessions ? { borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' } : { paddingTop: '0.25rem' }}
+        >
+          <div className="flex gap-2">
+            <input
+              value={code}
+              onChange={e => { setCode(e.target.value); setError(''); }}
+              placeholder={tr.home.groupCodePlaceholder}
+              maxLength={80}
+              autoComplete="off"
+              className="flex-1 rounded-xl px-4 py-3 text-sm"
+              style={{
+                background: 'rgba(255,255,255,0.07)',
+                border: error ? '1px solid #f87171' : '1px solid rgba(255,255,255,0.12)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+              }}
+            />
+            <button
+              type="submit"
+              disabled={loading || !code.trim()}
+              className="btn-primary rounded-xl px-5 py-3 text-white font-bold text-sm shrink-0 disabled:opacity-50 transition-opacity"
+            >
+              {loading ? '⏳' : tr.home.groupEnter}
+            </button>
+          </div>
+          {error && (
+            <p className="text-xs rounded-xl px-3 py-2" style={{ color: '#f87171', background: 'rgba(239,68,68,0.1)' }}>
+              {error}
+            </p>
+          )}
+        </form>
+      )}
     </div>
   );
 }
