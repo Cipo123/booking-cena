@@ -15,7 +15,7 @@ function formatDate(dateStr: string, lang: string) {
   );
 }
 
-function VoteBar({ option, votes }: { option: DatePollOption; votes: DatePollVote[] }) {
+function VoteBar({ option, votes, lang }: { option: DatePollOption; votes: DatePollVote[]; lang: string }) {
   const yes   = votes.filter(v => v.status === 'yes').length;
   const maybe = votes.filter(v => v.status === 'maybe').length;
   const total = votes.length;
@@ -40,7 +40,7 @@ function VoteBar({ option, votes }: { option: DatePollOption; votes: DatePollVot
           <span className="text-emerald-400 font-semibold">✅ {yes}</span>
           <span className="text-amber-400">🤔 {maybe}</span>
         </span>
-        <span>{total} {total === 1 ? 'voto' : 'voti'}</span>
+        <span>{total} {lang === 'it' ? (total === 1 ? 'voto' : 'voti') : (total === 1 ? 'vote' : 'votes')}</span>
       </div>
     </div>
   );
@@ -180,7 +180,7 @@ export default function PollPage() {
                   </div>
                 )}
               </div>
-              <VoteBar option={opt} votes={opt.votes} />
+              <VoteBar option={opt} votes={opt.votes} lang={lang} />
             </div>
           </div>
         ))}

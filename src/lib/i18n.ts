@@ -73,6 +73,10 @@ export const translations = {
       rsvpDeadline: 'Scadenza RSVP',
       deadlinePassed: '🔒 Risposte chiuse',
       deadlinePassedSub: 'Il termine per rispondere è scaduto.',
+      nameRequired: 'Inserisci il tuo nome.',
+      selectStage: 'Seleziona almeno una tappa.',
+      emailPlaceholder: 'nome@esempio.it',
+      notFound: 'Evento non trovato',
     },
     groups: {
       loginTitle: 'Accesso gruppo',
@@ -218,6 +222,10 @@ export const translations = {
       rsvpDeadline: 'RSVP deadline',
       deadlinePassed: '🔒 Responses closed',
       deadlinePassedSub: 'The deadline for responding has passed.',
+      nameRequired: 'Please enter your name.',
+      selectStage: 'Please select at least one stage.',
+      emailPlaceholder: 'name@example.com',
+      notFound: 'Event not found',
     },
     groups: {
       loginTitle: 'Group access',

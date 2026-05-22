@@ -55,7 +55,7 @@ export default function AvailabilityForm({ eventId, parts = [], rsvpDeadline, on
   const isMulti = parts.length > 0;
 
   async function submit(status?: Status) {
-    if (!name.trim()) { setError(isMulti ? tr.event.nameLabel.replace(' *','') + '!' : 'Inserisci il tuo nome.'); return; }
+    if (!name.trim()) { setError(tr.event.nameRequired); return; }
     setError('');
     setLoading(true);
 
@@ -63,7 +63,7 @@ export default function AvailabilityForm({ eventId, parts = [], rsvpDeadline, on
       if (isMulti) {
         // Submit one call per part that has a selection
         const entries = Object.entries(partSelections);
-        if (entries.length === 0) { setError('Seleziona almeno una tappa.'); setLoading(false); return; }
+        if (entries.length === 0) { setError(tr.event.selectStage); setLoading(false); return; }
         await Promise.all(
           entries.map(([part_id, st]) =>
             fetch(`/api/events/${eventId}/availability`, {
@@ -168,7 +168,7 @@ export default function AvailabilityForm({ eventId, parts = [], rsvpDeadline, on
               type="email"
               value={email}
               onChange={e => { setEmail(e.target.value); localStorage.setItem('bookingcena_email', e.target.value); }}
-              placeholder="nome@esempio.it"
+              placeholder={tr.event.emailPlaceholder}
             />
           </div>
           <div>

@@ -120,7 +120,7 @@ export default function EventPage() {
     </div>
   );
   if (!event) return (
-    <div className="text-center py-20" style={{ color: 'var(--text-muted)' }}>Evento non trovato</div>
+    <div className="text-center py-20" style={{ color: 'var(--text-muted)' }}>{tr.event.notFound}</div>
   );
 
   const isMulti  = event.parts.length > 0;
