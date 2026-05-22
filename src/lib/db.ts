@@ -13,6 +13,10 @@ const sql = postgres(process.env.DATABASE_URL, {
   connect_timeout: 10,
 });
 
+// Auto-migration: aggiunge colonne mancanti senza rompere nulla
+sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE NOT NULL`.catch(() => {});
+
+
 export type EventType = 'cena' | 'aperitivo' | 'colazione' | 'pizza' | 'festa' | 'altro';
 
 export interface Event {
