@@ -6,6 +6,7 @@ import { useLang } from '@/context/providers';
 import { googleCalendarUrl, outlookCalendarUrl } from '@/lib/calendar';
 import AvailabilityForm from '@/components/AvailabilityForm';
 import MapWidget from '@/components/MapWidget';
+import MultiEventMap from '@/components/MultiEventMap';
 import CountdownTimer from '@/components/CountdownTimer';
 import ShareQrWidget from '@/components/ShareQrWidget';
 import CommentsFeed from '@/components/CommentsFeed';
@@ -255,6 +256,14 @@ export default function EventPage() {
           ))}
         </div>
       </div>
+
+      {/* Global route map (multi-part only) */}
+      {isMulti && (
+        <MultiEventMap
+          meetingPoint={event.meeting_point || undefined}
+          parts={event.parts}
+        />
+      )}
 
       {/* Multi-part schedule */}
       {event.parts.length > 0 && (
