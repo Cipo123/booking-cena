@@ -14,14 +14,14 @@ const EVENT_LABEL_EN: Record<string, string> = {
   cena: 'Dinner', aperitivo: 'Aperitif', colazione: 'Breakfast', pizza: 'Pizza', festa: 'Party', altro: 'Event',
 };
 const TYPE_COLOR: Record<string, string> = {
-  cena: 'from-violet-600 to-purple-700',
+  cena: 'from-blue-600 to-indigo-700',
   aperitivo: 'from-amber-500 to-orange-600',
   colazione: 'from-sky-500 to-blue-600',
   pizza: 'from-red-500 to-rose-600',
   festa: 'from-pink-500 to-fuchsia-600',
   altro: 'from-teal-500 to-emerald-600',
 };
-const MULTI_GRADIENT = 'from-violet-600 via-fuchsia-500 to-pink-500';
+const MULTI_GRADIENT = 'from-cyan-500 via-blue-500 to-indigo-600';
 
 export default function EventCard({ event, index }: { event: Event; index: number }) {
   const { tr, lang } = useLang();

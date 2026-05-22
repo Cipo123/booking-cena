@@ -16,7 +16,7 @@ const EVENT_TYPES_EN = [
   { value: 'festa', label: '🎉 Party' }, { value: 'altro', label: '🎈 Other' },
 ];
 const TYPE_COLOR: Record<string, string> = {
-  cena: 'from-violet-600 to-purple-700', aperitivo: 'from-amber-500 to-orange-600',
+  cena: 'from-blue-600 to-indigo-700', aperitivo: 'from-amber-500 to-orange-600',
   colazione: 'from-sky-500 to-blue-600', pizza: 'from-red-500 to-rose-600',
   festa: 'from-pink-500 to-fuchsia-600', altro: 'from-teal-500 to-emerald-600',
 };
@@ -160,7 +160,7 @@ export default function AdminPage() {
             {[{ val: false, label: tr.admin.simpleMode }, { val: true, label: tr.admin.multiMode }].map(({ val, label }) => (
               <button key={String(val)} onClick={() => setIsMulti(val)}
                 className={`px-3 py-1.5 text-xs font-semibold transition-all ${isMulti === val
-                  ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white'
                   : 'text-secondary hover:opacity-80'}`}
               >{label}</button>
             ))}

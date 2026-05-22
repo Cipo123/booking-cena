@@ -21,7 +21,7 @@ export default function Navbar() {
         <span className="text-2xl">🍽️</span>
         <span
           style={{
-            background: 'linear-gradient(135deg, #a78bfa, #f472b6)',
+            background: 'linear-gradient(135deg, #60a5fa, #818cf8)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
           }}
@@ -38,7 +38,7 @@ export default function Navbar() {
             onClick={() => setLang('it')}
             className={`px-3 py-1.5 text-xs font-semibold transition-all ${
               lang === 'it'
-                ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white'
                 : 'text-secondary hover:text-primary'
             }`}
             title="Italiano"
@@ -49,7 +49,7 @@ export default function Navbar() {
             onClick={() => setLang('en')}
             className={`px-3 py-1.5 text-xs font-semibold transition-all ${
               lang === 'en'
-                ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white'
                 : 'text-secondary hover:text-primary'
             }`}
             title="English"
