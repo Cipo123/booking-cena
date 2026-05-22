@@ -6,6 +6,7 @@ import LocationAutocomplete from '@/components/LocationAutocomplete';
 import MapWidget from '@/components/MapWidget';
 import AttendanceDonut from '@/components/AttendanceDonut';
 import type { Event, EventPart, DatePoll, EventGroup } from '@/lib/db';
+import AdminEventDetail from '@/components/AdminEventDetail';
 import { slugify } from '@/lib/utils';
 
 const EVENT_TYPES_IT = [
@@ -154,6 +155,7 @@ export default function AdminPage() {
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [showArchive, setShowArchive] = useState(false);
+  const [detailEventId, setDetailEventId] = useState<string | null>(null);
 
   // Groups
   const [groups, setGroups]           = useState<EventGroup[]>([]);
@@ -500,6 +502,15 @@ export default function AdminPage() {
 
   // ── Dashboard ──────────────────────────────────────────────
   return (
+    <>
+    {detailEventId && (
+      <AdminEventDetail
+        eventId={detailEventId}
+        password={password}
+        lang={lang}
+        onClose={() => setDetailEventId(null)}
+      />
+    )}
     <div className="space-y-8 animate-fadeInUp">
       <div className="flex items-center justify-between">
         <div>
@@ -793,6 +804,8 @@ export default function AdminPage() {
                     ) : (
                       // Active: full set of actions + archive
                       <>
+                        <button onClick={() => setDetailEventId(event.id)}
+                          className="p-2 text-base opacity-50 hover:opacity-100 transition-opacity rounded-lg" title="Gestisci">👁️</button>
                         <a href={event.slug ? `/e/${event.slug}` : `/event/${event.id}`}
                           target="_blank" rel="noopener noreferrer"
                           className="p-2 text-base opacity-50 hover:opacity-100 transition-opacity rounded-lg" title="Apri">🔗</a>
@@ -1194,5 +1207,6 @@ export default function AdminPage() {
         )}
       </div>
     </div>
+    </>
   );
 }

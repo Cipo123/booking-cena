@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { eventsDb, availabilitiesDb } from '@/lib/db';
 
+export async function DELETE(req: NextRequest) {
+  try {
+    const adminPassword = process.env.ADMIN_PASSWORD ?? 'admin123';
+    if (req.headers.get('x-admin-password') !== adminPassword) {
+      return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 });
+    }
+    const { avail_id } = await req.json();
+    await availabilitiesDb.delete(avail_id);
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json({ error: 'Errore server' }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;

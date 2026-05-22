@@ -355,6 +355,10 @@ export const availabilitiesDb = {
     `;
     return rows[0];
   },
+
+  async delete(id: string): Promise<void> {
+    await sql`DELETE FROM availabilities WHERE id = ${id}`;
+  },
 };
 
 /* ── Comments ────────────────────────────────────────────── */
