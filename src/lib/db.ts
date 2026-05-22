@@ -28,6 +28,7 @@ export interface Event {
   slug: string | null;
   group_id: string | null;
   meeting_point: string;
+  archived: boolean;
   created_at: string;
   parts_count?: number;
   yes_count?: number;
@@ -158,11 +159,12 @@ export const eventsDb = {
         FROM events e
         LEFT JOIN event_parts  ep ON ep.event_id = e.id
         LEFT JOIN availabilities a ON a.event_id = e.id
-        WHERE e.group_id IS NULL
+        WHERE e.group_id IS NULL AND e.archived = FALSE
         GROUP BY e.id
         ORDER BY e.date ASC, e.time ASC
       `;
     }
+    // Admin: returns all events including archived, sorted by archived ASC (active first), then date
     return sql<Event[]>`
       SELECT e.*,
         COUNT(DISTINCT ep.id)::int AS parts_count,
@@ -173,7 +175,7 @@ export const eventsDb = {
       LEFT JOIN event_parts  ep ON ep.event_id = e.id
       LEFT JOIN availabilities a ON a.event_id = e.id
       GROUP BY e.id
-      ORDER BY e.date ASC, e.time ASC
+      ORDER BY e.archived ASC, e.date ASC, e.time ASC
     `;
   },
 
@@ -211,6 +213,14 @@ export const eventsDb = {
 
   async delete(id: string): Promise<void> {
     await sql`DELETE FROM events WHERE id = ${id}`;
+  },
+
+  async archive(id: string): Promise<void> {
+    await sql`UPDATE events SET archived = TRUE WHERE id = ${id}`;
+  },
+
+  async restore(id: string): Promise<void> {
+    await sql`UPDATE events SET archived = FALSE WHERE id = ${id}`;
   },
 
   async update(

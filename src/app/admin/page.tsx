@@ -151,6 +151,9 @@ export default function AdminPage() {
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [editingId, setEditingId]     = useState<string | null>(null);
   const [notifyEventId, setNotifyEventId] = useState<string | null>(null);
+  const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [showArchive, setShowArchive] = useState(false);
 
   // Groups
   const [groups, setGroups]           = useState<EventGroup[]>([]);
@@ -266,6 +269,56 @@ export default function AdminPage() {
       if (!res.ok && res.status === 401) { setAuthed(false); setAuthError(tr.admin.wrongPassword); return; }
       loadEvents();
     } finally { setDeleteId(null); }
+  }
+
+  async function handleArchive(id: string, title: string) {
+    if (!confirm(`${tr.admin.archiveConfirm}\n"${title}"`)) return;
+    setArchivingId(id);
+    try {
+      await fetch(`/api/events/${id}/archive`, { method: 'POST', headers: { 'x-admin-password': password } });
+      loadEvents();
+    } finally { setArchivingId(null); }
+  }
+
+  async function handleRestore(id: string) {
+    setRestoringId(id);
+    try {
+      await fetch(`/api/events/${id}/restore`, { method: 'POST', headers: { 'x-admin-password': password } });
+      loadEvents();
+    } finally { setRestoringId(null); }
+  }
+
+  async function handleDuplicate(event: Event & { parts_count?: number }) {
+    const partsCount = event.parts_count ?? 0;
+    setCreateError(''); setCreateSuccess(''); setEditingId(null);
+    const multi = partsCount > 0;
+    setIsMulti(multi);
+    setForm({
+      title: event.title,
+      description: event.description,
+      type: event.type,
+      location: event.location,
+      date: '',           // admin must pick a new date
+      time: event.time,
+      max_participants: event.max_participants?.toString() ?? '',
+      rsvp_deadline: '',  // reset deadline
+      slug: '',           // auto-generated from title
+      group_id: event.group_id ?? '',
+      meeting_point: event.meeting_point ?? '',
+    });
+    if (multi) {
+      try {
+        const res  = await fetch(`/api/events/${event.id}`);
+        const data = await res.json();
+        setParts((data.parts as EventPart[]).map((p: EventPart) => ({
+          id: undefined, title: p.title, type: p.type,
+          location: p.location, time: p.time,
+          end_time: p.end_time, description: p.description,
+        })));
+      } catch { setParts([emptyPart()]); }
+    } else { setParts([emptyPart()]); }
+    setCreateSuccess(tr.admin.duplicateNote);
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
 
   async function handleExportCsv(id: string, title: string) {
@@ -657,69 +710,98 @@ export default function AdminPage() {
       </div>
 
       {/* ── Events list ────────────────────────────────────── */}
-      <div className="space-y-3">
-        <h2 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
-          {tr.admin.allEvents} ({events.length})
-        </h2>
-        {loadingEvents ? (
-          <div className="glass rounded-2xl p-8 text-center" style={{ color: 'var(--text-muted)' }}>Caricamento...</div>
-        ) : events.length === 0 ? (
-          <div className="glass rounded-2xl p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>{tr.admin.noEvents}</div>
-        ) : (
-          <div className="space-y-2">
-            {events.map(event => {
-              const gradient   = TYPE_COLOR[event.type] ?? 'from-blue-600 to-indigo-700';
-              const partsCount = event.parts_count ?? 0;
-              const dateFormatted = new Date(event.date + 'T00:00:00').toLocaleDateString(
-                lang === 'it' ? 'it-IT' : 'en-GB',
-                { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }
-              );
-              const yesC   = event.yes_count   ?? 0;
-              const maybeC = event.maybe_count ?? 0;
-              const noC    = event.no_count    ?? 0;
-              return (
-                <div key={event.id}
-                  className="glass rounded-2xl overflow-hidden transition-all"
-                  style={editingId === event.id ? { boxShadow: '0 0 0 2px #60a5fa' } : {}}
-                >
-                  <div className="flex">
-                    <div className={`bg-gradient-to-b ${gradient} w-1.5 shrink-0`} />
-                    <div className="flex-1 px-4 py-3 flex items-center justify-between gap-3 min-w-0">
-                      {/* Left: info + donut */}
-                      <div className="flex items-center gap-3 min-w-0">
-                        {partsCount === 0 && (
-                          <AttendanceDonut yes={yesC} maybe={maybeC} no={noC} size={52} />
+      {(() => {
+        const activeEvents   = events.filter(e => !e.archived);
+        const archivedEvents = events.filter(e => e.archived);
+
+        function renderEventRow(event: Event, isArchived = false) {
+          const gradient   = TYPE_COLOR[event.type] ?? 'from-blue-600 to-indigo-700';
+          const partsCount = event.parts_count ?? 0;
+          const dateFormatted = new Date(event.date + 'T00:00:00').toLocaleDateString(
+            lang === 'it' ? 'it-IT' : 'en-GB',
+            { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }
+          );
+          const yesC   = event.yes_count   ?? 0;
+          const maybeC = event.maybe_count ?? 0;
+          const noC    = event.no_count    ?? 0;
+          return (
+            <div key={event.id}
+              className="glass rounded-2xl overflow-hidden transition-all"
+              style={{
+                ...(editingId === event.id ? { boxShadow: '0 0 0 2px #60a5fa' } : {}),
+                ...(isArchived ? { opacity: 0.7 } : {}),
+              }}
+            >
+              <div className="flex">
+                <div className={`bg-gradient-to-b ${isArchived ? 'from-gray-600 to-gray-700' : gradient} w-1.5 shrink-0`} />
+                <div className="flex-1 px-4 py-3 flex items-center justify-between gap-3 min-w-0">
+                  {/* Left: info + donut */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    {partsCount === 0 && !isArchived && (
+                      <AttendanceDonut yes={yesC} maybe={maybeC} no={noC} size={52} />
+                    )}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold truncate text-sm" style={{ color: 'var(--text-primary)' }}>{event.title}</p>
+                        {partsCount > 0 && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 shrink-0" style={{ color: 'var(--text-muted)' }}>
+                            🎭 {partsCount}
+                          </span>
                         )}
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-semibold truncate text-sm" style={{ color: 'var(--text-primary)' }}>{event.title}</p>
-                            {partsCount > 0 && (
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 shrink-0" style={{ color: 'var(--text-muted)' }}>
-                                🎭 {partsCount}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
-                            {dateFormatted}{partsCount === 0 ? ` · ${event.time}` : ''}
-                            {event.slug && <span className="ml-1 font-mono opacity-60"> /e/{event.slug}</span>}
-                          </p>
-                          {partsCount === 0 && (
-                            <div className="flex gap-2 mt-1">
-                              <span className="text-xs text-emerald-400 font-semibold">✅ {yesC}</span>
-                              <span className="text-xs text-amber-400">🤔 {maybeC}</span>
-                              <span className="text-xs text-rose-400">❌ {noC}</span>
-                            </div>
-                          )}
-                        </div>
+                        {isArchived && (
+                          <span className="text-xs px-2 py-0.5 rounded-full shrink-0" style={{ background: 'rgba(148,163,184,0.15)', color: 'var(--text-muted)' }}>
+                            📦
+                          </span>
+                        )}
                       </div>
-                      {/* Right: actions */}
-                      <div className="flex items-center gap-1 shrink-0">
+                      <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
+                        {dateFormatted}{partsCount === 0 ? ` · ${event.time}` : ''}
+                        {event.slug && <span className="ml-1 font-mono opacity-60"> /e/{event.slug}</span>}
+                      </p>
+                      {partsCount === 0 && (
+                        <div className="flex gap-2 mt-1">
+                          <span className="text-xs text-emerald-400 font-semibold">✅ {yesC}</span>
+                          <span className="text-xs text-amber-400">🤔 {maybeC}</span>
+                          <span className="text-xs text-rose-400">❌ {noC}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {/* Right: actions */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {isArchived ? (
+                      // Archived: restore + duplicate + delete
+                      <>
+                        <button onClick={() => handleRestore(event.id)} disabled={restoringId === event.id}
+                          className="p-2 text-base opacity-50 hover:opacity-100 transition-opacity disabled:opacity-30 rounded-lg"
+                          title={tr.admin.restoreBtn}>
+                          {restoringId === event.id ? '⏳' : '🔄'}
+                        </button>
+                        <button onClick={() => handleDuplicate(event)}
+                          className="p-2 text-base opacity-50 hover:opacity-100 transition-opacity rounded-lg"
+                          title={tr.admin.duplicateBtn}>📋</button>
+                        <button onClick={() => handleExportCsv(event.id, event.title)} disabled={exportingId === event.id}
+                          className="p-2 text-base opacity-50 hover:opacity-80 transition-opacity disabled:opacity-30 rounded-lg"
+                          title={tr.admin.exportCsv}>
+                          {exportingId === event.id ? '⏳' : '📊'}
+                        </button>
+                        <button onClick={() => handleDelete(event.id, event.title)} disabled={deleteId === event.id}
+                          className="p-2 text-base opacity-50 hover:opacity-100 transition-opacity disabled:opacity-30 rounded-lg" title="Elimina">
+                          {deleteId === event.id ? '⏳' : '🗑️'}
+                        </button>
+                      </>
+                    ) : (
+                      // Active: full set of actions + archive
+                      <>
                         <a href={event.slug ? `/e/${event.slug}` : `/event/${event.id}`}
                           target="_blank" rel="noopener noreferrer"
                           className="p-2 text-base opacity-50 hover:opacity-100 transition-opacity rounded-lg" title="Apri">🔗</a>
                         <button onClick={() => handleEdit(event)}
                           className={`p-2 text-base rounded-lg transition-opacity ${editingId === event.id ? 'opacity-100' : 'opacity-50 hover:opacity-100'}`}
                           title="Modifica">✏️</button>
+                        <button onClick={() => handleDuplicate(event)}
+                          className="p-2 text-base opacity-50 hover:opacity-100 transition-opacity rounded-lg"
+                          title={tr.admin.duplicateBtn}>📋</button>
                         <button
                           onClick={() => setNotifyEventId(n => n === event.id ? null : event.id)}
                           className={`p-2 text-base rounded-lg transition-opacity ${notifyEventId === event.id ? 'opacity-100' : 'opacity-50 hover:opacity-100'}`}
@@ -729,23 +811,68 @@ export default function AdminPage() {
                           style={{ color: 'var(--text-secondary)' }} title={tr.admin.exportCsv}>
                           {exportingId === event.id ? '⏳' : '📊'}
                         </button>
+                        <button onClick={() => handleArchive(event.id, event.title)} disabled={archivingId === event.id}
+                          className="p-2 text-base opacity-50 hover:opacity-100 transition-opacity disabled:opacity-30 rounded-lg"
+                          title={tr.admin.archiveBtn}>
+                          {archivingId === event.id ? '⏳' : '📦'}
+                        </button>
                         <button onClick={() => handleDelete(event.id, event.title)} disabled={deleteId === event.id}
                           className="p-2 text-base opacity-50 hover:opacity-100 transition-opacity disabled:opacity-30 rounded-lg" title="Elimina">
                           {deleteId === event.id ? '⏳' : '🗑️'}
                         </button>
-                      </div>
-                    </div>
+                      </>
+                    )}
                   </div>
-                  {notifyEventId === event.id && (
-                    <NotifyPanel eventId={event.id} password={password} lang={lang} onClose={() => setNotifyEventId(null)} />
-                  )}
-                  <EventMapSection event={event} partsCount={partsCount} />
                 </div>
-              );
-            })}
+              </div>
+              {!isArchived && notifyEventId === event.id && (
+                <NotifyPanel eventId={event.id} password={password} lang={lang} onClose={() => setNotifyEventId(null)} />
+              )}
+              <EventMapSection event={event} partsCount={partsCount} />
+            </div>
+          );
+        }
+
+        return (
+          <div className="space-y-3">
+            <h2 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
+              {tr.admin.allEvents} ({activeEvents.length})
+            </h2>
+            {loadingEvents ? (
+              <div className="glass rounded-2xl p-8 text-center" style={{ color: 'var(--text-muted)' }}>Caricamento...</div>
+            ) : activeEvents.length === 0 ? (
+              <div className="glass rounded-2xl p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>{tr.admin.noEvents}</div>
+            ) : (
+              <div className="space-y-2">
+                {activeEvents.map(e => renderEventRow(e, false))}
+              </div>
+            )}
+
+            {/* ── Archived section ── */}
+            {archivedEvents.length > 0 && (
+              <div className="space-y-2 pt-2">
+                <button
+                  onClick={() => setShowArchive(v => !v)}
+                  className="w-full flex items-center justify-between gap-2 glass rounded-2xl px-4 py-3 text-left transition-all hover:opacity-90"
+                >
+                  <span className="font-semibold text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    {tr.admin.archiveSection} ({archivedEvents.length})
+                    <span className="ml-2 text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
+                      — {tr.admin.archiveSectionSub}
+                    </span>
+                  </span>
+                  <span style={{ color: 'var(--text-muted)' }}>{showArchive ? '▲' : '▼'}</span>
+                </button>
+                {showArchive && (
+                  <div className="space-y-2 animate-fadeInUp">
+                    {archivedEvents.map(e => renderEventRow(e, true))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        );
+      })()}
 
       {/* ── Groups section ─────────────────────────────────── */}
       <div className="space-y-3">
