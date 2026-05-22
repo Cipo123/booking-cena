@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import type { Event, EventGroup } from '@/lib/db';
@@ -10,18 +10,47 @@ const GROUP_TYPE_LABEL: Record<string, string> = {
   compagnia: '👥 Compagnia', altro: '🏷️ Gruppo',
 };
 
+// Formato salvato in localStorage
+interface StoredAuth {
+  code: string;
+  group: Omit<EventGroup, 'access_key'>;
+  events: Event[];
+}
+
+function saveAuth(storageKey: string, auth: StoredAuth) {
+  localStorage.setItem(storageKey, JSON.stringify(auth));
+}
+
+function loadAuth(storageKey: string): StoredAuth | null {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    // Nuovo formato: oggetto con code/group/events
+    if (parsed && typeof parsed === 'object' && parsed.code && parsed.group) return parsed as StoredAuth;
+    // Vecchio formato: stringa semplice (solo codice)
+    if (typeof parsed === 'string') return { code: parsed, group: null as any, events: [] };
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/* ─── EventRow ─── */
 function EventRow({ event }: { event: Event }) {
   const dateStr = new Date(event.date + 'T00:00:00').toLocaleDateString('it-IT', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
-  const href = event.slug ? `/e/${event.slug}` : `/event/${event.id}`;
+  const href  = event.slug ? `/e/${event.slug}` : `/event/${event.id}`;
   const yes   = event.yes_count   ?? 0;
   const maybe = event.maybe_count ?? 0;
   const total = yes + maybe + (event.no_count ?? 0);
 
   return (
-    <Link href={href}
-      className="glass rounded-2xl overflow-hidden flex gap-0 hover:scale-[1.01] transition-transform block">
+    <Link
+      href={href}
+      className="glass rounded-2xl overflow-hidden flex gap-0 hover:scale-[1.01] transition-transform block"
+    >
       <div className="w-1.5 shrink-0 bg-gradient-to-b from-blue-500 to-indigo-600" />
       <div className="flex-1 px-4 py-4 flex items-center justify-between gap-3 min-w-0">
         <div className="min-w-0">
@@ -43,30 +72,65 @@ function EventRow({ event }: { event: Event }) {
   );
 }
 
+/* ─── GroupPage ─── */
 export default function GroupPage() {
   const { slug } = useParams<{ slug: string }>();
   const storageKey = `bookingcena_group_${slug}`;
 
-  const [key, setKey]         = useState('');
   const [inputKey, setInputKey] = useState('');
-  const [group, setGroup]     = useState<Omit<EventGroup, 'access_key'> | null>(null);
-  const [events, setEvents]   = useState<Event[]>([]);
-  const [error, setError]     = useState('');
-  const [loading, setLoading] = useState(false);
+  const [group, setGroup]       = useState<Omit<EventGroup, 'access_key'> | null>(null);
+  const [events, setEvents]     = useState<Event[]>([]);
+  const [error, setError]       = useState('');
+  const [loading, setLoading]   = useState(false);
+  // checking = true solo se non abbiamo dati cached (primo caricamento senza cache)
   const [checking, setChecking] = useState(true);
 
-  // Al mount: se c'è una chiave salvata, verifica subito
+  /* ── ri-verifica silenziosa in background ── */
+  const silentVerify = useCallback(async (code: string) => {
+    try {
+      const res = await fetch(`/api/groups/${slug}/access`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: code }),
+      });
+      if (!res.ok) {
+        if (res.status === 401) {
+          // Codice revocato: pulisce e mostra form
+          localStorage.removeItem(storageKey);
+          setGroup(null); setEvents([]);
+        }
+        return;
+      }
+      const data = await res.json();
+      // Aggiorna dati freschi (potrebbero esserci nuovi eventi)
+      setGroup(data.group);
+      setEvents(data.events);
+      saveAuth(storageKey, { code, group: data.group, events: data.events });
+    } catch { /* ignora errori di rete, mantiene cache */ }
+  }, [slug, storageKey]);
+
+  /* ── mount: carica dalla cache, poi ri-verifica in background ── */
   useEffect(() => {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      verify(saved);
-    } else {
+    const stored = loadAuth(storageKey);
+    if (!stored) {
       setChecking(false);
+      return;
+    }
+    if (stored.group) {
+      // Cache completa → mostra subito senza spinner
+      setGroup(stored.group);
+      setEvents(stored.events);
+      setChecking(false);
+      silentVerify(stored.code);
+    } else {
+      // Vecchio formato (solo codice) → verifica completa
+      fullVerify(stored.code);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  async function verify(k: string) {
+  /* ── verifica completa (primo accesso o vecchio formato) ── */
+  async function fullVerify(k: string) {
     setLoading(true); setError('');
     try {
       const res = await fetch(`/api/groups/${slug}/access`, {
@@ -77,14 +141,12 @@ export default function GroupPage() {
       const data = await res.json();
       if (!res.ok) {
         localStorage.removeItem(storageKey);
-        setError(res.status === 401 ? 'Chiave non corretta. Riprova.' : (data.error ?? 'Errore'));
-        setChecking(false);
+        setError(res.status === 401 ? 'Codice non corretto. Riprova.' : (data.error ?? 'Errore'));
         return;
       }
-      localStorage.setItem(storageKey, k);
-      setKey(k);
       setGroup(data.group);
       setEvents(data.events);
+      saveAuth(storageKey, { code: k, group: data.group, events: data.events });
     } catch {
       setError('Errore di rete. Riprova.');
     } finally {
@@ -96,40 +158,42 @@ export default function GroupPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!inputKey.trim()) return;
-    verify(inputKey.trim());
+    fullVerify(inputKey.trim());
   }
 
   function logout() {
     localStorage.removeItem(storageKey);
-    setKey(''); setGroup(null); setEvents([]);
+    setGroup(null); setEvents([]);
   }
 
-  // Verifica in corso (chiave salvata)
+  /* ─── Spinner (solo se nessuna cache e verifica in corso) ─── */
   if (checking) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="text-center space-y-3">
           <div className="text-4xl animate-bounce">🔑</div>
-          <p style={{ color: 'var(--text-muted)' }}>Verifica accesso...</p>
+          <p style={{ color: 'var(--text-muted)' }}>Verifica accesso…</p>
         </div>
       </div>
     );
   }
 
-  // Autenticato → mostra eventi del gruppo
+  /* ─── Autenticato → mostra eventi ─── */
   if (group) {
     const typeLabel = GROUP_TYPE_LABEL[group.type] ?? '🏷️ Gruppo';
-    const upcoming = events.filter(e => new Date(e.date + 'T23:59:59') >= new Date());
-    const past     = events.filter(e => new Date(e.date + 'T23:59:59') <  new Date());
+    const upcoming  = events.filter(e => new Date(`${e.date}T${e.time}`) >= new Date(Date.now() - 2 * 3600_000));
+    const past      = events.filter(e => new Date(`${e.date}T${e.time}`) <  new Date(Date.now() - 2 * 3600_000));
 
     return (
       <div className="max-w-2xl mx-auto space-y-6 animate-fadeInUp">
-        {/* Header */}
+        {/* Header gruppo */}
         <div className="glass rounded-2xl p-6 space-y-2">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <span className="text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
-                style={{ background: 'var(--card-bg)', color: 'var(--text-muted)' }}>
+              <span
+                className="text-xs font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full"
+                style={{ background: 'var(--card-bg)', color: 'var(--text-muted)' }}
+              >
                 {typeLabel}
               </span>
               <h1 className="text-2xl font-black mt-2" style={{ color: 'var(--text-primary)' }}>{group.name}</h1>
@@ -137,14 +201,16 @@ export default function GroupPage() {
                 <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{group.description}</p>
               )}
             </div>
-            <button onClick={logout}
+            <button
+              onClick={logout}
               className="shrink-0 text-xs opacity-40 hover:opacity-70 transition-opacity"
-              style={{ color: 'var(--text-muted)' }}>
+              style={{ color: 'var(--text-muted)' }}
+            >
               🔒 Esci
             </button>
           </div>
           <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
-            {events.length} event{events.length !== 1 ? 'i' : 'o'} · /g/{slug}
+            {events.length} event{events.length !== 1 ? 'i' : 'o'} · accesso salvato su questo dispositivo
           </p>
         </div>
 
@@ -160,7 +226,7 @@ export default function GroupPage() {
 
         {/* Passati */}
         {past.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-2 opacity-60">
             <h2 className="text-sm font-bold uppercase tracking-wide px-1" style={{ color: 'var(--text-muted)' }}>
               🗂️ Passati ({past.length})
             </h2>
@@ -177,7 +243,7 @@ export default function GroupPage() {
     );
   }
 
-  // Form di sblocco
+  /* ─── Form di sblocco ─── */
   return (
     <div className="max-w-sm mx-auto mt-16 space-y-6 animate-fadeInUp">
       <div className="text-center space-y-2">
@@ -186,13 +252,15 @@ export default function GroupPage() {
           Accesso gruppo
         </h1>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Inserisci la chiave fornita dall'organizzatore per vedere gli eventi.
+          Inserisci il codice fornito dall'organizzatore.
         </p>
       </div>
       <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 space-y-4">
         <div>
           <label className="block text-xs uppercase tracking-wide font-semibold mb-1"
-            style={{ color: 'var(--text-muted)' }}>Chiave di accesso</label>
+            style={{ color: 'var(--text-muted)' }}>
+            Codice di accesso
+          </label>
           <input
             value={inputKey}
             onChange={e => setInputKey(e.target.value)}
@@ -203,11 +271,16 @@ export default function GroupPage() {
         </div>
         {error && (
           <p className="text-sm rounded-xl px-3 py-2"
-            style={{ color: '#f87171', background: 'rgba(239,68,68,0.1)' }}>{error}</p>
+            style={{ color: '#f87171', background: 'rgba(239,68,68,0.1)' }}>
+            {error}
+          </p>
         )}
-        <button type="submit" disabled={loading}
-          className="btn-primary w-full rounded-xl py-3 text-white font-bold text-sm disabled:opacity-60">
-          {loading ? '⏳ Verifica...' : '🔓 Accedi al gruppo'}
+        <button
+          type="submit"
+          disabled={loading}
+          className="btn-primary w-full rounded-xl py-3 text-white font-bold text-sm disabled:opacity-60"
+        >
+          {loading ? '⏳ Verifica…' : '🔓 Accedi al gruppo'}
         </button>
       </form>
     </div>

@@ -25,8 +25,12 @@ function GroupAccessWidget() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? 'Codice non valido'); return; }
-      // Salva il codice in localStorage così /g/[slug] si sblocca subito
-      localStorage.setItem(`bookingcena_group_${data.slug}`, c);
+      // Salva codice + dati in localStorage → /g/[slug] si apre istantaneamente
+      localStorage.setItem(`bookingcena_group_${data.slug}`, JSON.stringify({
+        code: c,
+        group: data.group,
+        events: data.events,
+      }));
       router.push(`/g/${data.slug}`);
     } catch {
       setError('Errore di rete. Riprova.');
