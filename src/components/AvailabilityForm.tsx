@@ -156,7 +156,7 @@ export default function AvailabilityForm({ eventId, parts = [], rsvpDeadline, on
               <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {part.title} <span style={{ color: 'var(--text-muted)' }}>· {part.time}</span>
               </p>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5 sm:gap-2">
                 {(['yes','maybe','no'] as Status[]).map(s => {
                   const labels = { yes: tr.event.yes, maybe: tr.event.maybe, no: tr.event.no };
                   const cls = { yes: 'btn-yes', maybe: 'btn-maybe', no: 'btn-no' };
@@ -165,7 +165,7 @@ export default function AvailabilityForm({ eventId, parts = [], rsvpDeadline, on
                     <button
                       key={s}
                       onClick={() => setPartSelections(prev => ({ ...prev, [part.id]: s }))}
-                      className={`${cls[s]} flex-1 rounded-xl py-2 text-white text-xs font-bold transition-all ${selected ? 'selected ring-2' : 'opacity-70 hover:opacity-100'}`}
+                      className={`${cls[s]} flex-1 rounded-xl py-2.5 text-white text-xs font-bold transition-all min-h-[44px] ${selected ? 'selected ring-2' : 'opacity-70 hover:opacity-100'}`}
                     >
                       {labels[s]}
                     </button>

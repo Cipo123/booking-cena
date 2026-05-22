@@ -71,7 +71,7 @@ function PartCard({ part, availabilities }: { part: EventPart; availabilities: A
         <span className="text-2xl">{emoji}</span>
         <div className="flex-1">
           <p className="text-white font-bold">{part.title}</p>
-          <p className="text-white/70 text-xs">
+          <p className="text-white/70 text-xs truncate">
             {part.time}{part.end_time ? ` → ${part.end_time}` : ''}{part.location ? ` · ${part.location}` : ''}
           </p>
         </div>

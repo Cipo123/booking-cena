@@ -141,6 +141,21 @@ select option {
   color: #0f2951;
 }
 
+/* ── Mobile / touch improvements ─────────────────────── */
+@media (max-width: 640px) {
+  /* Prevent horizontal overflow everywhere */
+  body { overflow-x: hidden; }
+
+  /* Slightly larger base text on small screens */
+  input, textarea, select { font-size: 16px; } /* prevents iOS auto-zoom on focus */
+
+  /* Make glass cards a little more compact on xs */
+  .glass { border-radius: 1rem; }
+}
+
+/* Ensure all interactive elements have a minimum tap area */
+button, a[role="button"] { min-height: 36px; }
+
 /* ── Animations ───────────────────────────────────────── */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(16px); }

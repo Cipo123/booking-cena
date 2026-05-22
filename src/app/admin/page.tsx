@@ -281,7 +281,7 @@ export default function AdminPage() {
 
       {/* Create / Edit form */}
       <div ref={formRef} className="glass rounded-2xl p-6 space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
             {editingId ? tr.admin.editTitle : tr.admin.createTitle}
           </h2>
@@ -487,25 +487,25 @@ export default function AdminPage() {
                         {dateFormatted}{partsCount === 0 ? ` · ${event.time}` : ''}{(partsCount === 0 && event.location) ? ` · ${event.location}` : ''}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                       <a href={`/event/${event.id}`} target="_blank" rel="noopener noreferrer"
-                        className="text-lg opacity-50 hover:opacity-100 transition-opacity" title="Apri">🔗</a>
+                        className="p-2 text-lg opacity-50 hover:opacity-100 transition-opacity rounded-lg" title="Apri">🔗</a>
                       <button
                         onClick={() => handleEdit(event)}
-                        className={`text-lg transition-opacity ${editingId === event.id ? 'opacity-100' : 'opacity-50 hover:opacity-100'}`}
+                        className={`p-2 text-lg rounded-lg transition-opacity ${editingId === event.id ? 'opacity-100' : 'opacity-50 hover:opacity-100'}`}
                         title="Modifica">✏️
                       </button>
                       <button
                         onClick={() => handleExportCsv(event.id, event.title)}
                         disabled={exportingId === event.id}
-                        className="text-xs glass-strong rounded-lg px-2.5 py-1.5 font-semibold transition-all hover:opacity-80 disabled:opacity-30"
+                        className="p-2 text-base glass-strong rounded-lg font-semibold transition-all hover:opacity-80 disabled:opacity-30 min-w-[36px]"
                         style={{ color: 'var(--text-secondary)' }}
                         title={tr.admin.exportCsv}
                       >
                         {exportingId === event.id ? '⏳' : '📊'}
                       </button>
                       <button onClick={() => handleDelete(event.id, event.title)} disabled={deleteId === event.id}
-                        className="text-lg opacity-50 hover:opacity-100 transition-opacity disabled:opacity-30" title="Elimina">
+                        className="p-2 text-lg opacity-50 hover:opacity-100 transition-opacity disabled:opacity-30 rounded-lg" title="Elimina">
                         {deleteId === event.id ? '⏳' : '🗑️'}
                       </button>
                     </div>

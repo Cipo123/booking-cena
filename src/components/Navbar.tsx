@@ -31,12 +31,12 @@ export default function Navbar() {
       </a>
 
       {/* Controls */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2">
         {/* Language toggle */}
         <div className="flex rounded-xl overflow-hidden glass" style={{ border: '1px solid var(--card-border)' }}>
           <button
             onClick={() => setLang('it')}
-            className={`px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`px-2 sm:px-3 py-1.5 text-xs font-semibold transition-all min-w-[40px] ${
               lang === 'it'
                 ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white'
                 : 'text-secondary hover:text-primary'
@@ -47,7 +47,7 @@ export default function Navbar() {
           </button>
           <button
             onClick={() => setLang('en')}
-            className={`px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`px-2 sm:px-3 py-1.5 text-xs font-semibold transition-all min-w-[40px] ${
               lang === 'en'
                 ? 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white'
                 : 'text-secondary hover:text-primary'
@@ -61,20 +61,21 @@ export default function Navbar() {
         {/* Theme toggle */}
         <button
           onClick={toggleTheme}
-          className="glass rounded-xl px-3 py-1.5 text-sm transition-all hover:scale-105 active:scale-95"
+          className="glass rounded-xl px-2.5 sm:px-3 py-1.5 text-sm transition-all hover:scale-105 active:scale-95 min-w-[36px]"
           title={theme === 'dark' ? 'Modalità chiara' : 'Modalità scura'}
           style={{ color: 'var(--text-secondary)' }}
         >
           {theme === 'dark' ? '☀️' : '🌙'}
         </button>
 
-        {/* Admin link */}
+        {/* Admin link — only icon on xs screens */}
         <a
           href="/admin"
-          className="text-xs font-medium transition-colors flex items-center gap-1 glass rounded-xl px-3 py-1.5"
+          className="text-xs font-medium transition-colors flex items-center gap-1 glass rounded-xl px-2.5 sm:px-3 py-1.5 min-w-[36px]"
           style={{ color: 'var(--text-muted)' }}
+          title="Admin"
         >
-          <span>🔐</span> Admin
+          <span>🔐</span><span className="hidden sm:inline"> Admin</span>
         </a>
       </div>
     </nav>

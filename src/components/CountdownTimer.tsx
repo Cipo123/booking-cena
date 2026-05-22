@@ -62,11 +62,11 @@ export default function CountdownTimer({ date, time }: { date: string; time: str
       <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
         {tr.event.countdown}
       </p>
-      <div className="flex items-end gap-3">
+      <div className="flex items-end gap-2 sm:gap-4">
         {units.map(({ value, label }) => (
-          <div key={label} className="flex flex-col items-center">
+          <div key={label} className="flex flex-col items-center min-w-[40px]">
             <span
-              className="text-2xl font-black tabular-nums"
+              className="text-xl sm:text-2xl font-black tabular-nums"
               style={{
                 background: 'linear-gradient(135deg, #60a5fa, #38bdf8)',
                 WebkitBackgroundClip: 'text',

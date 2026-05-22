@@ -58,9 +58,9 @@ export default function ShareQrWidget({ title }: { title: string }) {
       </div>
 
       {showQr && url && (
-        <div className="flex items-center gap-5 pt-1 animate-fadeInUp">
-          <div className="rounded-xl bg-white p-3 shrink-0">
-            <QRCode value={url} size={140} />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 pt-1 animate-fadeInUp">
+          <div className="rounded-xl bg-white p-3 self-start sm:shrink-0">
+            <QRCode value={url} size={120} />
           </div>
           <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>
             {tr.event.scanQr}
