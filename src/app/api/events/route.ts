@@ -19,21 +19,24 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { title, description, type, location, date, time, max_participants } = body;
+    const { title, description, type, location, date, time, max_participants, parts } = body;
 
     if (!title || !date || !time) {
       return NextResponse.json({ error: 'Titolo, data e ora sono obbligatori' }, { status: 400 });
     }
 
-    const event = await eventsDb.create({
-      title,
-      description: description ?? '',
-      type: type ?? 'cena',
-      location: location ?? '',
-      date,
-      time,
-      max_participants: max_participants ? Number(max_participants) : null,
-    });
+    const event = await eventsDb.create(
+      {
+        title,
+        description: description ?? '',
+        type: type ?? 'cena',
+        location: location ?? '',
+        date,
+        time,
+        max_participants: max_participants ? Number(max_participants) : null,
+      },
+      Array.isArray(parts) && parts.length > 0 ? parts : undefined,
+    );
 
     return NextResponse.json(event, { status: 201 });
   } catch (e) {

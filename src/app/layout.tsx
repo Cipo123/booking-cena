@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { Providers } from '@/context/providers';
+import Navbar from '@/components/Navbar';
 
 export const metadata: Metadata = {
   title: 'BookingCena — Organizza le tue uscite',
@@ -8,29 +10,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="it">
+    <html lang="it" data-theme="dark" suppressHydrationWarning>
       <body className="min-h-screen">
-        <nav className="glass sticky top-0 z-50 px-6 py-3 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight">
-            <span className="text-2xl">🍽️</span>
-            <span
-              style={{
-                background: 'linear-gradient(135deg, #a78bfa, #f472b6)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              BookingCena
-            </span>
-          </a>
-          <a
-            href="/admin"
-            className="text-sm text-white/60 hover:text-white/90 transition-colors flex items-center gap-1"
-          >
-            <span>🔐</span> Admin
-          </a>
-        </nav>
-        <main className="max-w-5xl mx-auto px-4 py-8">{children}</main>
+        <Providers>
+          <Navbar />
+          <main className="max-w-5xl mx-auto px-4 py-8">{children}</main>
+        </Providers>
       </body>
     </html>
   );

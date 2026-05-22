@@ -1,14 +1,25 @@
-import { eventsDb } from '@/lib/db';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useLang } from '@/context/providers';
 import EventCard from '@/components/EventCard';
+import type { Event } from '@/lib/db';
 
-export const dynamic = 'force-dynamic';
+export default function HomePage() {
+  const { tr } = useLang();
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export default async function HomePage() {
-  const events = await eventsDb.getAll();
+  useEffect(() => {
+    fetch('/api/events')
+      .then(r => r.json())
+      .then(data => { setEvents(Array.isArray(data) ? data : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
 
   const now = new Date(Date.now() - 2 * 60 * 60 * 1000);
-  const upcoming = events.filter((e) => new Date(`${e.date}T${e.time}`) >= now);
-  const past = events.filter((e) => new Date(`${e.date}T${e.time}`) < now);
+  const upcoming = events.filter(e => new Date(`${e.date}T${e.time}`) >= now);
+  const past     = events.filter(e => new Date(`${e.date}T${e.time}`) < now);
 
   return (
     <div className="space-y-10">
@@ -22,44 +33,45 @@ export default async function HomePage() {
             WebkitTextFillColor: 'transparent',
           }}
         >
-          Prossime Uscite 🎊
+          {tr.home.title}
         </h1>
-        <p className="text-white/60 text-lg max-w-xl mx-auto">
-          Dichiara la tua disponibilità, salva l&apos;evento in calendario e non perdere nemmeno
-          un&apos;uscita!
+        <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--text-secondary)' }}>
+          {tr.home.subtitle}
         </p>
       </div>
 
-      {/* Upcoming */}
-      {upcoming.length === 0 ? (
+      {loading ? (
+        <div className="grid gap-5 md:grid-cols-2">
+          {[1, 2].map(i => (
+            <div key={i} className="glass rounded-2xl h-52 animate-pulse" />
+          ))}
+        </div>
+      ) : upcoming.length === 0 ? (
         <div className="glass rounded-2xl p-12 text-center space-y-3 animate-fadeInUp">
           <p className="text-5xl">🗓️</p>
-          <p className="text-white/70 text-lg">Nessun evento in programma.</p>
-          <p className="text-white/40 text-sm">L&apos;admin aggiungerà presto nuove uscite!</p>
+          <p className="text-lg font-semibold" style={{ color: 'var(--text-secondary)' }}>
+            {tr.home.empty}
+          </p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{tr.home.emptyHint}</p>
         </div>
       ) : (
         <section className="space-y-4">
-          <h2 className="text-white/80 font-semibold text-sm uppercase tracking-widest px-1">
-            Prossimi eventi ({upcoming.length})
+          <h2 className="text-sm font-semibold uppercase tracking-widest px-1" style={{ color: 'var(--text-secondary)' }}>
+            {tr.home.upcoming} ({upcoming.length})
           </h2>
           <div className="grid gap-5 md:grid-cols-2">
-            {upcoming.map((event, i) => (
-              <EventCard key={event.id} event={event} index={i} />
-            ))}
+            {upcoming.map((event, i) => <EventCard key={event.id} event={event} index={i} />)}
           </div>
         </section>
       )}
 
-      {/* Past */}
       {past.length > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-white/40 font-semibold text-sm uppercase tracking-widest px-1">
-            eventi passati ({past.length})
+        <section className="space-y-4 opacity-50">
+          <h2 className="text-sm font-semibold uppercase tracking-widest px-1" style={{ color: 'var(--text-muted)' }}>
+            {tr.home.past} ({past.length})
           </h2>
-          <div className="grid gap-5 md:grid-cols-2 opacity-50">
-            {past.map((event, i) => (
-              <EventCard key={event.id} event={event} index={i} />
-            ))}
+          <div className="grid gap-5 md:grid-cols-2">
+            {past.map((event, i) => <EventCard key={event.id} event={event} index={i} />)}
           </div>
         </section>
       )}

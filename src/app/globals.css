@@ -1,32 +1,67 @@
 @import "tailwindcss";
 
-:root {
+/* ── Dark theme (default) ─────────────────────────────── */
+:root,
+[data-theme="dark"] {
   --bg-from: #0f0c29;
   --bg-via: #302b63;
   --bg-to: #24243e;
+  --card-bg: rgba(255,255,255,0.08);
+  --card-bg-strong: rgba(255,255,255,0.12);
+  --card-border: rgba(255,255,255,0.15);
+  --card-border-strong: rgba(255,255,255,0.2);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255,255,255,0.7);
+  --text-muted: rgba(255,255,255,0.4);
+  --input-bg: rgba(255,255,255,0.07);
+  --input-border: rgba(255,255,255,0.2);
+  --input-focus: #a78bfa;
+  --nav-bg: rgba(15,12,41,0.7);
 }
 
+/* ── Light theme ──────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-from: #ede9fe;
+  --bg-via: #fce7f3;
+  --bg-to: #fef3c7;
+  --card-bg: rgba(255,255,255,0.75);
+  --card-bg-strong: rgba(255,255,255,0.9);
+  --card-border: rgba(124,58,237,0.15);
+  --card-border-strong: rgba(124,58,237,0.25);
+  --text-primary: #1e1b4b;
+  --text-secondary: #4c1d95;
+  --text-muted: #7c3aed;
+  --input-bg: rgba(255,255,255,0.8);
+  --input-border: rgba(124,58,237,0.3);
+  --input-focus: #7c3aed;
+  --nav-bg: rgba(237,233,254,0.8);
+}
+
+/* ── Base ─────────────────────────────────────────────── */
 body {
   background: linear-gradient(135deg, var(--bg-from) 0%, var(--bg-via) 50%, var(--bg-to) 100%);
+  background-attachment: fixed;
   min-height: 100vh;
-  color: #ffffff;
+  color: var(--text-primary);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  transition: background 0.4s ease, color 0.3s ease;
 }
 
+/* ── Glass cards ──────────────────────────────────────── */
 .glass {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--card-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--card-border);
 }
-
 .glass-strong {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--card-bg-strong);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--card-border-strong);
 }
 
+/* ── Buttons ──────────────────────────────────────────── */
 .btn-primary {
   background: linear-gradient(135deg, #7c3aed, #a855f7);
   transition: all 0.2s ease;
@@ -34,88 +69,96 @@ body {
 .btn-primary:hover {
   background: linear-gradient(135deg, #6d28d9, #9333ea);
   transform: translateY(-1px);
-  box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+  box-shadow: 0 8px 25px rgba(124,58,237,0.4);
 }
-
 .btn-yes {
   background: linear-gradient(135deg, #059669, #10b981);
   transition: all 0.2s ease;
 }
-.btn-yes:hover {
+.btn-yes:hover, .btn-yes.active {
   transform: translateY(-1px);
-  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 8px 25px rgba(16,185,129,0.45);
 }
-.btn-yes.active {
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.5), 0 8px 25px rgba(16, 185, 129, 0.4);
-}
+.btn-yes.selected { box-shadow: 0 0 0 3px rgba(16,185,129,0.6), 0 8px 20px rgba(16,185,129,0.4); }
 
 .btn-maybe {
   background: linear-gradient(135deg, #b45309, #f59e0b);
   transition: all 0.2s ease;
 }
-.btn-maybe:hover {
+.btn-maybe:hover, .btn-maybe.active {
   transform: translateY(-1px);
-  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+  box-shadow: 0 8px 25px rgba(245,158,11,0.45);
 }
-.btn-maybe.active {
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.5), 0 8px 25px rgba(245, 158, 11, 0.4);
-}
+.btn-maybe.selected { box-shadow: 0 0 0 3px rgba(245,158,11,0.6), 0 8px 20px rgba(245,158,11,0.4); }
 
 .btn-no {
   background: linear-gradient(135deg, #be123c, #f43f5e);
   transition: all 0.2s ease;
 }
-.btn-no:hover {
+.btn-no:hover, .btn-no.active {
   transform: translateY(-1px);
-  box-shadow: 0 8px 25px rgba(244, 63, 94, 0.4);
+  box-shadow: 0 8px 25px rgba(244,63,94,0.45);
 }
-.btn-no.active {
-  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.5), 0 8px 25px rgba(244, 63, 94, 0.4);
-}
+.btn-no.selected { box-shadow: 0 0 0 3px rgba(244,63,94,0.6), 0 8px 20px rgba(244,63,94,0.4); }
 
-.card-hover {
-  transition: all 0.3s ease;
-}
+/* ── Card hover ───────────────────────────────────────── */
+.card-hover { transition: all 0.3s ease; }
 .card-hover:hover {
   transform: translateY(-4px);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  border-color: rgba(167, 139, 250, 0.4);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  border-color: rgba(167,139,250,0.5);
+}
+[data-theme="light"] .card-hover:hover {
+  box-shadow: 0 20px 60px rgba(124,58,237,0.15);
 }
 
+/* ── Form inputs ──────────────────────────────────────── */
 input, textarea, select {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--text-primary);
   border-radius: 0.5rem;
   padding: 0.5rem 0.75rem;
   width: 100%;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
   outline: none;
 }
 input:focus, textarea:focus, select:focus {
-  border-color: #a78bfa;
-  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.2);
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 3px rgba(167,139,250,0.2);
 }
 input::placeholder, textarea::placeholder {
-  color: rgba(255,255,255,0.35);
+  color: var(--text-muted);
 }
 select option {
   background: #302b63;
   color: white;
 }
+[data-theme="light"] select option {
+  background: #ede9fe;
+  color: #1e1b4b;
+}
 
+/* ── Animations ───────────────────────────────────────── */
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.animate-fadeInUp {
-  animation: fadeInUp 0.4s ease both;
-}
+.animate-fadeInUp { animation: fadeInUp 0.4s ease both; }
 
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(167, 139, 250, 0.2); }
-  50%       { box-shadow: 0 0 40px rgba(167, 139, 250, 0.5); }
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
-.pulse-glow {
-  animation: pulse-glow 3s ease-in-out infinite;
+.animate-fadeIn { animation: fadeIn 0.3s ease both; }
+
+@keyframes countdownPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
 }
+.countdown-pulse { animation: countdownPulse 2s ease-in-out infinite; }
+
+/* ── Text colors using CSS vars ───────────────────────── */
+.text-primary   { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-muted     { color: var(--text-muted); }

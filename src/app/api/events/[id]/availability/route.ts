@@ -8,7 +8,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!event) return NextResponse.json({ error: 'Evento non trovato' }, { status: 404 });
 
     const body = await req.json();
-    const { user_name, user_email, status, note } = body;
+    const { user_name, user_email, status, note, part_id } = body;
 
     if (!user_name || !status) {
       return NextResponse.json({ error: 'Nome e stato sono obbligatori' }, { status: 400 });
@@ -23,6 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       user_email: user_email?.trim() ?? '',
       status,
       note: note?.trim() ?? '',
+      part_id: part_id ?? null,
     });
 
     return NextResponse.json(availability, { status: 201 });
