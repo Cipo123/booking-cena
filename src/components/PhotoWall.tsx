@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { EventPhoto } from '@/lib/db';
 
 interface Props {
@@ -245,10 +246,11 @@ export default function PhotoWall({ eventId, lang }: Props) {
         </p>
       </div>
 
-      {/* ── LIGHTBOX ─────────────────────────────────────────── */}
-      {currentPhoto && (
+      {/* ── LIGHTBOX — renderizzato via Portal su document.body
+           per sfuggire allo stacking context del backdrop-filter glass ── */}
+      {currentPhoto && createPortal(
         <div
-          className="fixed inset-0 z-50 flex flex-col bg-black/95 overflow-hidden"
+          className="fixed inset-0 z-[9999] flex flex-col bg-black/95 overflow-hidden"
           style={{ animation: 'fadeIn .15s ease' }}
           onClick={closeLightbox}
         >
@@ -364,7 +366,8 @@ export default function PhotoWall({ eventId, lang }: Props) {
               ? '← → naviga · ESC chiudi · click sull\'immagine per zoom'
               : '← → navigate · ESC close · click image to zoom'}
           </p>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
