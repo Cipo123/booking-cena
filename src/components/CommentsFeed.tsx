@@ -27,6 +27,12 @@ export default function CommentsFeed({ eventId }: { eventId: string }) {
   const [comments, setComments] = useState<EventComment[]>([]);
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
+
+  // Carica il nome salvato al mount
+  useEffect(() => {
+    const saved = localStorage.getItem('bookingcena_username');
+    if (saved) setName(saved);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -115,7 +121,10 @@ export default function CommentsFeed({ eventId }: { eventId: string }) {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <input
             value={name}
-            onChange={e => setName(e.target.value)}
+            onChange={e => {
+              setName(e.target.value);
+              localStorage.setItem('bookingcena_username', e.target.value);
+            }}
             placeholder={lang === 'it' ? 'Il tuo nome' : 'Your name'}
             maxLength={60}
             className="sm:col-span-1"

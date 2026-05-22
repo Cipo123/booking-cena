@@ -39,6 +39,12 @@ export default function PhotoWall({ eventId, lang }: Props) {
   const [uploading, setUploading]     = useState(false);
   const [uploaderName, setUploaderName] = useState('');
   const [error, setError]             = useState('');
+
+  // Carica il nome salvato al mount (stessa chiave di CommentsFeed)
+  useEffect(() => {
+    const saved = localStorage.getItem('bookingcena_username');
+    if (saved) setUploaderName(saved);
+  }, []);
   const [noStorage, setNoStorage]     = useState(false);
   const [dlAll, setDlAll]             = useState(false);
   const [zoomed, setZoomed]           = useState(false);
@@ -219,7 +225,10 @@ export default function PhotoWall({ eventId, lang }: Props) {
         <div className="flex gap-2">
           <input
             value={uploaderName}
-            onChange={e => setUploaderName(e.target.value)}
+            onChange={e => {
+              setUploaderName(e.target.value);
+              localStorage.setItem('bookingcena_username', e.target.value);
+            }}
             placeholder={lang === 'it' ? 'Il tuo nome' : 'Your name'}
             maxLength={60}
             className="flex-1"
