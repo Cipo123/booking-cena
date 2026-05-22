@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLang } from '@/context/providers';
 import LocationAutocomplete from '@/components/LocationAutocomplete';
-import type { Event } from '@/lib/db';
+import MapWidget from '@/components/MapWidget';
+import type { Event, EventPart } from '@/lib/db';
 
 const EVENT_TYPES_IT = [
   { value: 'cena', label: '🍽️ Cena' }, { value: 'aperitivo', label: '🥂 Aperitivo' },
@@ -23,6 +24,70 @@ const TYPE_COLOR: Record<string, string> = {
 
 interface Part { title: string; type: string; location: string; time: string; end_time: string; description: string; }
 const emptyPart = (): Part => ({ title: '', type: 'aperitivo', location: '', time: '19:00', end_time: '', description: '' });
+
+/** Collapsible map section per event row in admin list */
+function EventMapSection({ event, partsCount }: { event: Event; partsCount: number }) {
+  const [open, setOpen]   = useState(false);
+  const [parts, setParts] = useState<EventPart[]>([]);
+  const [fetching, setFetching] = useState(false);
+
+  const hasLocation = partsCount === 0 && !!event.location;
+  const isMulti     = partsCount > 0;
+  if (!hasLocation && !isMulti) return null;
+
+  async function toggle() {
+    if (!open && isMulti && parts.length === 0) {
+      setFetching(true);
+      try {
+        const res  = await fetch(`/api/events/${event.id}`);
+        const data = await res.json();
+        setParts((data.parts ?? []).filter((p: EventPart) => p.location));
+      } catch { /* ignore */ } finally { setFetching(false); }
+    }
+    setOpen(o => !o);
+  }
+
+  return (
+    <div className="border-t" style={{ borderColor: 'var(--card-border)' }}>
+      {hasLocation ? (
+        /* Simple event: reuse MapWidget which has its own toggle */
+        <MapWidget location={event.location} />
+      ) : (
+        /* Multi-stage: lazy-load parts then show one map per stage */
+        <>
+          <button
+            onClick={toggle}
+            className="w-full flex items-center justify-between px-5 py-3 text-left hover:bg-white/5 transition-colors"
+          >
+            <span className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              <span>📍</span>
+              {open ? 'Nascondi mappe tappe' : 'Mostra mappe tappe'}
+            </span>
+            <span style={{ color: 'var(--text-muted)' }}>{open ? '▲' : '▼'}</span>
+          </button>
+          {open && (
+            <div className="animate-fadeIn">
+              {fetching ? (
+                <p className="px-5 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>Caricamento...</p>
+              ) : parts.length === 0 ? (
+                <p className="px-5 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>Nessuna tappa con luogo impostato.</p>
+              ) : (
+                parts.map((p, i) => (
+                  <div key={p.id} className={i > 0 ? 'border-t' : ''} style={{ borderColor: 'var(--card-border)' }}>
+                    <p className="px-5 pt-3 pb-1 text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
+                      {p.title}{p.time ? ` · ${p.time}` : ''}
+                    </p>
+                    <MapWidget location={p.location} initialOpen={true} />
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const { tr, lang } = useLang();
@@ -302,7 +367,12 @@ export default function AdminPage() {
                   </div>
                 </div>
               ))}
-              <button type="button" onClick={() => setParts(ps => [...ps, emptyPart()])}
+              <button type="button" onClick={() => setParts(ps => {
+                const prev = ps[ps.length - 1];
+                // Default start = previous stage's end time (or its start if no end set)
+                const defaultTime = prev?.end_time || prev?.time || '19:00';
+                return [...ps, { ...emptyPart(), time: defaultTime }];
+              })}
                 className="glass-strong w-full rounded-xl py-2 text-sm font-semibold transition-all hover:opacity-80"
                 style={{ color: 'var(--text-secondary)' }}>
                 {tr.admin.addPart}
@@ -339,7 +409,8 @@ export default function AdminPage() {
                 { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }
               );
               return (
-                <div key={event.id} className="glass rounded-2xl overflow-hidden flex">
+                <div key={event.id} className="glass rounded-2xl overflow-hidden">
+                  <div className="flex">
                   <div className={`bg-gradient-to-b ${gradient} w-1.5 shrink-0`} />
                   <div className="flex-1 px-5 py-4 flex items-center justify-between gap-4 min-w-0">
                     <div className="min-w-0">
@@ -373,6 +444,8 @@ export default function AdminPage() {
                       </button>
                     </div>
                   </div>
+                  </div>{/* end flex row */}
+                  <EventMapSection event={event} partsCount={partsCount} />
                 </div>
               );
             })}

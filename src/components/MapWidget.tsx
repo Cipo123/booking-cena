@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { useLang } from '@/context/providers';
 
-export default function MapWidget({ location }: { location: string }) {
+export default function MapWidget({ location, initialOpen }: { location: string; initialOpen?: boolean }) {
   const { tr } = useLang();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen ?? false);
   if (!location) return null;
 
   const encoded = encodeURIComponent(location);

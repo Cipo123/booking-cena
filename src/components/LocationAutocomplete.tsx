@@ -121,9 +121,9 @@ export default function LocationAutocomplete({ value, onChange, placeholder, req
         <div
           className="absolute z-50 left-0 right-0 mt-1 rounded-xl overflow-hidden shadow-2xl"
           style={{
-            background: 'var(--card-bg)',
-            border: '1px solid var(--card-border)',
-            backdropFilter: 'blur(16px)',
+            background: 'var(--popover-bg)',
+            border: '1px solid var(--card-border-strong)',
+            backdropFilter: 'blur(20px)',
           }}
         >
           {suggestions.map((s, i) => (
