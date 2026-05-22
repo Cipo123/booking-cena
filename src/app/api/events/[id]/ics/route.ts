@@ -5,10 +5,12 @@ import { generateICS, generateICSForPart } from '@/lib/calendar';
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const event = await eventsDb.getById(id);
+    const partId = req.nextUrl.searchParams.get('part_id');
+
+    // Always fetch full event (includes parts) so ?part_id works
+    const event = await eventsDb.getWithAvailabilities(id);
     if (!event) return NextResponse.json({ error: 'Evento non trovato' }, { status: 404 });
 
-    const partId = req.nextUrl.searchParams.get('part_id');
     if (partId) {
       const part = event.parts.find(p => p.id === partId);
       if (!part) return NextResponse.json({ error: 'Tappa non trovata' }, { status: 404 });
